@@ -193,7 +193,7 @@ namespace Microsoft.IdentityModel.Tokens
     /// <param name="validationParameters">The <see cref="ValidationParameters"/> to be used for validating the token.</param>
     /// <param name="callContext">The <see cref="CallContext"/> to be used for logging.</param>
     /// <returns>The <see cref="SecurityKey"/> used to decrypt the token.</returns>
-    internal delegate IList<SecurityKey> ResolveTokenDecryptionKeyDelegate(string token, SecurityToken securityToken, string kid, ValidationParameters validationParameters, CallContext? callContext);
+    internal delegate IList<SecurityKey> DecryptionKeyResolverDelegate(string token, SecurityToken securityToken, string kid, ValidationParameters validationParameters, CallContext? callContext);
 
     /// <summary>
     /// Validates the signature of the security token.
@@ -204,14 +204,10 @@ namespace Microsoft.IdentityModel.Tokens
     /// <param name="callContext">The <see cref="CallContext"/> to be used for logging.</param>
     /// <remarks>This method is not expected to throw.</remarks>
     /// <returns>The validated <see cref="SecurityToken"/>.</returns>
-    internal delegate Result<SecurityKey> SignatureValidatorDelegate(SecurityToken token, ValidationParameters validationParameters, BaseConfiguration? configuration, CallContext? callContext);
-
-    /// <summary>
-    /// Transforms the security token before signature validation.
-    /// </summary>
-    /// <param name="token">The <see cref="SecurityToken"/> being validated.</param>
-    /// <param name="validationParameters">The <see cref="ValidationParameters"/> to be used for validating the token.</param>
-    /// <returns>The transformed <see cref="SecurityToken"/>.</returns>
-    internal delegate SecurityToken TransformBeforeSignatureValidationDelegate(SecurityToken token, ValidationParameters validationParameters);
+    internal delegate ValidationResult<SecurityKey> SignatureValidationDelegate(
+        SecurityToken token,
+        ValidationParameters validationParameters,
+        BaseConfiguration? configuration,
+        CallContext callContext);
 #nullable restore
 }

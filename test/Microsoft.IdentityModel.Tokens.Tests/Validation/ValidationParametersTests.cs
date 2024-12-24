@@ -4,8 +4,9 @@
 using System;
 using System.Collections.Generic;
 using Xunit;
+using Microsoft.IdentityModel.TestUtils;
 
-namespace Microsoft.IdentityModel.Tokens.Tests.Validation
+namespace Microsoft.IdentityModel.Tokens.Validation.Tests
 {
     public class ValidationParametersTests
     {
@@ -16,7 +17,7 @@ namespace Microsoft.IdentityModel.Tokens.Tests.Validation
             Assert.Throws<ArgumentNullException>(() => validationParameters.IssuerValidatorAsync = null);
             Assert.Throws<ArgumentNullException>(() => validationParameters.TokenReplayValidator = null);
             Assert.Throws<ArgumentNullException>(() => validationParameters.LifetimeValidator = null);
-            Assert.Throws<ArgumentNullException>(() => validationParameters.TypeValidator = null);
+            Assert.Throws<ArgumentNullException>(() => validationParameters.TokenTypeValidator = null);
             Assert.Throws<ArgumentNullException>(() => validationParameters.AudienceValidator = null);
             Assert.Throws<ArgumentNullException>(() => validationParameters.IssuerSigningKeyValidator = null);
         }
@@ -45,6 +46,26 @@ namespace Microsoft.IdentityModel.Tokens.Tests.Validation
 
             Assert.Empty(validationParameters.ValidTypes);
             Assert.True(validationParameters.ValidTypes is IList<string>);
+        }
+
+        [Fact]
+        public void Valid_Set_TimeProvider()
+        {
+            TimeProvider timeProvider = new MockTimeProvider();
+            var validationParameters = new ValidationParameters()
+            {
+                TimeProvider = timeProvider
+            };
+
+            Assert.Equal(validationParameters.TimeProvider, timeProvider);
+        }
+
+        [Fact]
+        public void Valid_NotNull_TimeProvider()
+        {
+            var validationParameters = new ValidationParameters();
+
+            Assert.NotNull(validationParameters.TimeProvider);
         }
     }
 }

@@ -22,7 +22,6 @@ namespace Microsoft.IdentityModel.JsonWebTokens
             internal static StackFrame? TokenNull;
             internal static StackFrame? TokenValidationParametersNull;
             internal static StackFrame? TokenNotJWT;
-            internal static StackFrame? TokenValidationFailedNullConfigurationManager;
             internal static StackFrame? TokenValidationFailed;
             // ValidateJWEAsync
             internal static StackFrame? DecryptionFailed;
@@ -48,6 +47,9 @@ namespace Microsoft.IdentityModel.JsonWebTokens
             // ReadToken
             internal static StackFrame? ReadTokenNullOrEmpty;
             internal static StackFrame? ReadTokenMalformed;
+            // ValidateSignature
+            internal static StackFrame? KidNotMatchedNoTryAll;
+            internal static StackFrame? NoKeysProvided;
         }
     }
 }

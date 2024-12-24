@@ -4,7 +4,6 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Net.Http;
 using System.Security.Claims;
 using System.Threading.Tasks;
 using Microsoft.IdentityModel.JsonWebTokens;
@@ -56,7 +55,7 @@ namespace System.IdentityModel.Tokens.Jwt.Tests
                 Assert.NotNull(aTypeClaims.SingleOrDefault(c => c.Value == value));
         }
 
-        [Theory, MemberData(nameof(CreateJWEWithPayloadStringTheoryData))]
+        [Theory, MemberData(nameof(CreateJWEWithPayloadStringTheoryData), DisableDiscoveryEnumeration = true)]
         public void CreateJWEWithAdditionalHeaderClaims(CreateTokenTheoryData theoryData)
         {
             var context = TestUtilities.WriteHeader($"{this}.CreateJWEWithAdditionalHeaderClaims", theoryData);
@@ -258,7 +257,7 @@ namespace System.IdentityModel.Tokens.Jwt.Tests
         }
 
         // Tests for expected differences between the JwtSecurityTokenHandler and the JsonWebTokenHandler.
-        [Theory, MemberData(nameof(CreateJWEUsingSecurityTokenDescriptorTheoryData))]
+        [Theory, MemberData(nameof(CreateJWEUsingSecurityTokenDescriptorTheoryData), DisableDiscoveryEnumeration = true)]
         public async Task CheckExpectedDifferenceInAudClaimUsingSecurityTokenDescriptor(CreateTokenTheoryData theoryData)
         {
             if (theoryData.TokenDescriptor == null)
@@ -383,7 +382,7 @@ namespace System.IdentityModel.Tokens.Jwt.Tests
 
         // Tests checks to make sure that the token string created by the JwtSecurityTokenHandler is consistent with the 
         // token string created by the JsonWebTokenHandler.
-        [Theory, MemberData(nameof(CreateJWEUsingSecurityTokenDescriptorTheoryData))]
+        [Theory, MemberData(nameof(CreateJWEUsingSecurityTokenDescriptorTheoryData), DisableDiscoveryEnumeration = true)]
         public async Task CreateJWEUsingSecurityTokenDescriptor(CreateTokenTheoryData theoryData)
         {
             CompareContext context = TestUtilities.WriteHeader($"{this}.CreateJWEUsingSecurityTokenDescriptor", theoryData);
@@ -639,7 +638,7 @@ namespace System.IdentityModel.Tokens.Jwt.Tests
             }
         }
 
-        [Theory, MemberData(nameof(ActorTheoryData))]
+        [Theory, MemberData(nameof(ActorTheoryData), DisableDiscoveryEnumeration = true)]
         public void Actor(JwtTheoryData theoryData)
         {
             var context = new CompareContext();
@@ -798,7 +797,7 @@ namespace System.IdentityModel.Tokens.Jwt.Tests
             }
         }
 
-        [Theory, MemberData(nameof(BootstrapContextTheoryData))]
+        [Theory, MemberData(nameof(BootstrapContextTheoryData), DisableDiscoveryEnumeration = true)]
         public void BootstrapContext(JwtTheoryData theoryData)
         {
             TestUtilities.WriteHeader($"{this}.BootstrapContext", theoryData);
@@ -1154,11 +1153,15 @@ namespace System.IdentityModel.Tokens.Jwt.Tests
 
             // Check to make sure that setting MapInboundClaims to true initializes the InboundClaimType map with the default mappings if it was previously empty.
             Assert.Equal(73, handler.InboundClaimTypeMap.Count);
+
             // Check to make sure that changing the instance property did not alter the static property.
             Assert.True(JwtSecurityTokenHandler.DefaultMapInboundClaims == false);
+
+            // re-set DefaultMapInboundClaims to true to avoid causing flakiness for other tests.
+            JwtSecurityTokenHandler.DefaultMapInboundClaims = true;
         }
 
-        [Theory, MemberData(nameof(ReadTimesExpressedAsDoublesTheoryData))]
+        [Theory, MemberData(nameof(ReadTimesExpressedAsDoublesTheoryData), DisableDiscoveryEnumeration = true)]
         public void ReadTimesExpressedAsDoubles(JwtTheoryData theoryData)
         {
             var context = TestUtilities.WriteHeader($"{this}.ReadTimesExpressedAsDoubles", theoryData);
@@ -1322,7 +1325,7 @@ namespace System.IdentityModel.Tokens.Jwt.Tests
             Assert.True(identity.HasClaim("internalClaim", "claimValue"));
         }
 
-        [Theory, MemberData(nameof(JweDecompressSizeTheoryData))]
+        [Theory, MemberData(nameof(JweDecompressSizeTheoryData), DisableDiscoveryEnumeration = true)]
         public async Task JWEDecompressionSizeTest(JWEDecompressionTheoryData theoryData)
         {
             var context = TestUtilities.WriteHeader($"{this}.JWEDecompressionTest", theoryData);
@@ -1387,7 +1390,7 @@ namespace System.IdentityModel.Tokens.Jwt.Tests
             return theoryData;
         }
 
-        [Theory, MemberData(nameof(JWEDecompressionTheoryData))]
+        [Theory, MemberData(nameof(JWEDecompressionTheoryData), DisableDiscoveryEnumeration = true)]
         public void JWEDecompressionTest(JWEDecompressionTheoryData theoryData)
         {
             var context = TestUtilities.WriteHeader($"{this}.JWEDecompressionTest", theoryData);
@@ -1535,7 +1538,7 @@ namespace System.IdentityModel.Tokens.Jwt.Tests
             TestUtilities.ValidateTokenReplay(Default.AsymmetricJwt, new JwtSecurityTokenHandler(), Default.AsymmetricSignTokenValidationParameters);
         }
 
-        [Theory, MemberData(nameof(SegmentTheoryData))]
+        [Theory, MemberData(nameof(SegmentTheoryData), DisableDiscoveryEnumeration = true)]
         public void SegmentRead(JwtTheoryData theoryData)
         {
             var context = TestUtilities.WriteHeader($"{this}.SegmentRead", theoryData);
@@ -1552,7 +1555,7 @@ namespace System.IdentityModel.Tokens.Jwt.Tests
             TestUtilities.AssertFailIfErrors(context);
         }
 
-        [Theory, MemberData(nameof(SegmentTheoryData))]
+        [Theory, MemberData(nameof(SegmentTheoryData), DisableDiscoveryEnumeration = true)]
         public void SegmentCanRead(JwtTheoryData theoryData)
         {
             Assert.Equal(theoryData.CanRead, theoryData.TokenHandler.CanReadToken(theoryData.Token));
@@ -1581,7 +1584,7 @@ namespace System.IdentityModel.Tokens.Jwt.Tests
             return theoryData;
         }
 
-        [Theory, MemberData(nameof(ValidateAlgorithmTheoryData))]
+        [Theory, MemberData(nameof(ValidateAlgorithmTheoryData), DisableDiscoveryEnumeration = true)]
         public void ValidateAlgorithm(JwtTheoryData theoryData)
         {
             TestUtilities.WriteHeader($"{this}.ValidateAlgorithm", theoryData);
@@ -1789,7 +1792,7 @@ namespace System.IdentityModel.Tokens.Jwt.Tests
             }
         }
 
-        [Theory, MemberData(nameof(ValidateAudienceTheoryData))]
+        [Theory, MemberData(nameof(ValidateAudienceTheoryData), DisableDiscoveryEnumeration = true)]
         public void ValidateAudience(JwtTheoryData theoryData)
         {
             TestUtilities.WriteHeader($"{this}.ValidateAudience", theoryData);
@@ -1949,7 +1952,7 @@ namespace System.IdentityModel.Tokens.Jwt.Tests
             };
         }
 
-        [Theory, MemberData(nameof(ValidateIssuerTheoryData))]
+        [Theory, MemberData(nameof(ValidateIssuerTheoryData), DisableDiscoveryEnumeration = true)]
         public void ValidateIssuer(JwtTheoryData theoryData)
         {
             TestUtilities.WriteHeader($"{this}.ValidateIssuer", theoryData);
@@ -2052,7 +2055,7 @@ namespace System.IdentityModel.Tokens.Jwt.Tests
             }
         }
 
-        [Theory, MemberData(nameof(TokenReplayValidationTheoryData))]
+        [Theory, MemberData(nameof(TokenReplayValidationTheoryData), DisableDiscoveryEnumeration = true)]
         public void TokenReplayValidation(TokenReplayTheoryData theoryData)
         {
             TestUtilities.WriteHeader($"{this}.TokenReplayValidation", theoryData);
@@ -2109,7 +2112,7 @@ namespace System.IdentityModel.Tokens.Jwt.Tests
             };
         }
 
-        [Theory, MemberData(nameof(ValidateLifetimeTheoryData))]
+        [Theory, MemberData(nameof(ValidateLifetimeTheoryData), DisableDiscoveryEnumeration = true)]
         public void ValidateLifetime(JwtTheoryData theoryData)
         {
             TestUtilities.WriteHeader($"{this}.ValidateLifetime", theoryData);
@@ -2167,7 +2170,7 @@ namespace System.IdentityModel.Tokens.Jwt.Tests
             };
         }
 
-        [Theory, MemberData(nameof(ValidateSignatureTheoryData))]
+        [Theory, MemberData(nameof(ValidateSignatureTheoryData), DisableDiscoveryEnumeration = true)]
         public void ValidateSignature(JwtTheoryData theoryData)
         {
             TestUtilities.WriteHeader($"{this}.ValidateSignature", theoryData);
@@ -2381,7 +2384,7 @@ namespace System.IdentityModel.Tokens.Jwt.Tests
             };
         }
 
-        [Theory, MemberData(nameof(ValidateJwsWithConfigTheoryData))]
+        [Theory, MemberData(nameof(ValidateJwsWithConfigTheoryData), DisableDiscoveryEnumeration = true)]
         public void ValidateJWSWithConfig(JwtTheoryData theoryData)
         {
             var context = TestUtilities.WriteHeader($"{this}.ValidateJWSWithConfig", theoryData);
@@ -2432,7 +2435,7 @@ namespace System.IdentityModel.Tokens.Jwt.Tests
             }
         }
 
-        [Theory, MemberData(nameof(ValidateJwsWithLastKnownGoodTheoryData))]
+        [Theory, MemberData(nameof(ValidateJwsWithLastKnownGoodTheoryData), DisableDiscoveryEnumeration = true)]
         public async Task ValidateJWSWithLastKnownGood(JwtTheoryData theoryData)
         {
             var context = TestUtilities.WriteHeader($"{this}.ValidateJWSWithLastKnownGood", theoryData);
@@ -2483,7 +2486,7 @@ namespace System.IdentityModel.Tokens.Jwt.Tests
 
         public static TheoryData<JwtTheoryData> ValidateJwsWithLastKnownGoodTheoryData => JwtTestDatasets.ValidateJwsWithLastKnownGoodTheoryData;
 
-        [Theory, MemberData(nameof(ValidateJWEWithLastKnownGoodTheoryData))]
+        [Theory, MemberData(nameof(ValidateJWEWithLastKnownGoodTheoryData), DisableDiscoveryEnumeration = true)]
         public async Task ValidateJWEWithLastKnownGood(JwtTheoryData theoryData)
         {
             var context = TestUtilities.WriteHeader($"{this}.ValidateJWEWithLastKnownGood", theoryData);
@@ -2534,7 +2537,7 @@ namespace System.IdentityModel.Tokens.Jwt.Tests
 
         public static TheoryData<JwtTheoryData> ValidateJWEWithLastKnownGoodTheoryData => JwtTestDatasets.ValidateJWEWithLastKnownGoodTheoryData;
 
-        [Theory, MemberData(nameof(ValidateTokenTheoryData))]
+        [Theory, MemberData(nameof(ValidateTokenTheoryData), DisableDiscoveryEnumeration = true)]
         public void ValidateToken(JwtTheoryData theoryData)
         {
             TestUtilities.WriteHeader($"{this}.ValidateToken", theoryData);
@@ -2673,7 +2676,7 @@ namespace System.IdentityModel.Tokens.Jwt.Tests
         }
 
 
-        [Theory, MemberData(nameof(ValidateTypeTheoryData))]
+        [Theory, MemberData(nameof(ValidateTypeTheoryData), DisableDiscoveryEnumeration = true)]
         public void ValidateType(JwtTheoryData theoryData)
         {
             TestUtilities.WriteHeader($"{this}.ValidateType", theoryData);
@@ -2832,7 +2835,7 @@ namespace System.IdentityModel.Tokens.Jwt.Tests
             }
         }
 
-        [Theory, MemberData(nameof(WriteTokenTheoryData))]
+        [Theory, MemberData(nameof(WriteTokenTheoryData), DisableDiscoveryEnumeration = true)]
         public void WriteToken(JwtTheoryData theoryData)
         {
             try
@@ -2957,7 +2960,7 @@ namespace System.IdentityModel.Tokens.Jwt.Tests
             return theoryData;
         }
 
-        [Theory, MemberData(nameof(KeyWrapTokenTheoryData))]
+        [Theory, MemberData(nameof(KeyWrapTokenTheoryData), DisableDiscoveryEnumeration = true)]
         public void KeyWrapTokenTest(KeyWrapTokenTheoryData theoryData)
         {
             TestUtilities.WriteHeader($"{this}.KeyWrapTokenTest", theoryData);
@@ -3023,7 +3026,7 @@ namespace System.IdentityModel.Tokens.Jwt.Tests
             return theoryData;
         }
 
-        [Theory, MemberData(nameof(ParametersCheckTheoryData))]
+        [Theory, MemberData(nameof(ParametersCheckTheoryData), DisableDiscoveryEnumeration = true)]
         public void ParametersCheckTest(ParametersCheckTheoryData theoryData)
         {
             TestUtilities.WriteHeader($"{this}.ParametersCheckTest", theoryData);
@@ -3059,7 +3062,7 @@ namespace System.IdentityModel.Tokens.Jwt.Tests
             };
         }
 
-        [Theory, MemberData(nameof(SecurityTokenDecryptionTheoryData))]
+        [Theory, MemberData(nameof(SecurityTokenDecryptionTheoryData), DisableDiscoveryEnumeration = true)]
         public void GetEncryptionKeys(CreateTokenTheoryData theoryData)
         {
             var context = TestUtilities.WriteHeader($"{this}.EncryptionKeysCheck", theoryData);
@@ -3153,7 +3156,7 @@ namespace System.IdentityModel.Tokens.Jwt.Tests
             }
         }
 
-        [Theory, MemberData(nameof(SecurityKeyNotFoundExceptionTestTheoryData))]
+        [Theory, MemberData(nameof(SecurityKeyNotFoundExceptionTestTheoryData), DisableDiscoveryEnumeration = true)]
         public void SecurityKeyNotFoundExceptionTest(CreateTokenTheoryData theoryData)
         {
             var context = TestUtilities.WriteHeader($"{this}.SecurityKeyNotFoundExceptionTest", theoryData);

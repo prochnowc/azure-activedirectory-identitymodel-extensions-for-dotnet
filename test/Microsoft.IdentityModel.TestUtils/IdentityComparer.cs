@@ -491,6 +491,12 @@ namespace Microsoft.IdentityModel.TestUtils
 
         public static bool AreDateTimesEqual(object object1, object object2, CompareContext context)
         {
+            return AreDateTimesEqual(object1, object2, "dateTime1", "dateTime2", context);
+        }
+
+        public static bool AreDateTimesEqual(
+            object object1, object object2, string name1, string name2, CompareContext context)
+        {
             var localContext = new CompareContext(context);
             if (!ContinueCheckingEquality(object1, object2, localContext))
                 return context.Merge(localContext);
@@ -499,7 +505,7 @@ namespace Microsoft.IdentityModel.TestUtils
             DateTime dateTime2 = (DateTime)object2;
 
             if (dateTime1 != dateTime2)
-                localContext.Diffs.Add($"dateTime1 != dateTime2. '{dateTime1}' != '{dateTime2}'.");
+                localContext.Diffs.Add($"{name1} != {name2}. '{dateTime1}' != '{dateTime2}'.");
 
             return context.Merge(localContext);
         }
@@ -1034,6 +1040,92 @@ namespace Microsoft.IdentityModel.TestUtils
             return AreEnumsEqual<SecurityKey>(object1 as IEnumerable<SecurityKey>, object2 as IEnumerable<SecurityKey>, context, AreSecurityKeysEqual);
         }
 
+        public static bool AreSecurityTokenExceptionsEqual(object object1, object object2, CompareContext context)
+        {
+            var localContext = new CompareContext(context);
+            if (!ContinueCheckingEquality(object1, object2, localContext))
+                return context.Merge(localContext);
+
+            if (object1 is SecurityTokenExpiredException securityTokenExpiredException1 &&
+                object2 is SecurityTokenExpiredException securityTokenExpiredException2)
+            {
+                AreDateTimesEqual(securityTokenExpiredException1.Expires,
+                    securityTokenExpiredException2.Expires,
+                    "SecurityTokenExpiredException1.Expires",
+                    "SecurityTokenExpiredException2.Expires",
+                    localContext);
+            }
+            else if (object1 is SecurityTokenInvalidAlgorithmException securityTokenInvalidAlgorithmException1 &&
+                object2 is SecurityTokenInvalidAlgorithmException securityTokenInvalidAlgorithmException2)
+            {
+                AreStringsEqual(securityTokenInvalidAlgorithmException1.InvalidAlgorithm,
+                    securityTokenInvalidAlgorithmException2.InvalidAlgorithm,
+                    "SecurityTokenInvalidAlgorithmException1.InvalidAlgorithm",
+                    "SecurityTokenInvalidAlgorithmException2.InvalidAlgorithm",
+                    localContext);
+            }
+            else if (object1 is SecurityTokenInvalidAudienceException securityTokenInvalidAudienceException1 &&
+                object2 is SecurityTokenInvalidAudienceException securityTokenInvalidAudienceException2)
+            {
+                AreStringsEqual(securityTokenInvalidAudienceException1.InvalidAudience,
+                    securityTokenInvalidAudienceException2.InvalidAudience,
+                    "SecurityTokenInvalidAudienceException1.InvalidAudience",
+                    "SecurityTokenInvalidAudienceException2.InvalidAudience",
+                    localContext);
+            }
+            else if (object1 is SecurityTokenInvalidIssuerException securityTokenInvalidIssuerException1 &&
+                object2 is SecurityTokenInvalidIssuerException securityTokenInvalidIssuerException2)
+            {
+                AreStringsEqual(securityTokenInvalidIssuerException1.InvalidIssuer,
+                    securityTokenInvalidIssuerException2.InvalidIssuer,
+                    "SecurityTokenInvalidIssuerException1.InvalidIssuer",
+                    "SecurityTokenInvalidIssuerException2.InvalidIssuer",
+                    localContext);
+            }
+            else if (object1 is SecurityTokenInvalidSigningKeyException securityTokenInvalidSigningKeyException1 &&
+                object2 is SecurityTokenInvalidSigningKeyException securityTokenInvalidSigningKeyException2)
+            {
+                AreSecurityKeysEqual(securityTokenInvalidSigningKeyException1.SigningKey,
+                    securityTokenInvalidSigningKeyException2.SigningKey,
+                    localContext);
+            }
+            else if (object1 is SecurityTokenInvalidLifetimeException securityTokenInvalidLifetimeException1 &&
+                object2 is SecurityTokenInvalidLifetimeException securityTokenInvalidLifetimeException2)
+            {
+                AreDateTimesEqual(securityTokenInvalidLifetimeException1.Expires,
+                    securityTokenInvalidLifetimeException2.Expires,
+                    "SecurityTokenInvalidLifetimeException1.Expires",
+                    "SecurityTokenInvalidLifetimeException2.Expires",
+                    localContext);
+
+                AreDateTimesEqual(securityTokenInvalidLifetimeException1.NotBefore,
+                    securityTokenInvalidLifetimeException2.NotBefore,
+                    "SecurityTokenInvalidLifetimeException1.NotBefore",
+                    "SecurityTokenInvalidLifetimeException2.NotBefore",
+                    localContext);
+            }
+            else if (object1 is SecurityTokenInvalidTypeException securityTokenInvalidTypeException1 &&
+                    object2 is SecurityTokenInvalidTypeException securityTokenInvalidTypeException2)
+            {
+                AreStringsEqual(securityTokenInvalidTypeException1.InvalidType,
+                    securityTokenInvalidTypeException2.InvalidType,
+                    "SecurityTokenInvalidTypeException1.InvalidType",
+                    "SecurityTokenInvalidTypeException2.InvalidType",
+                    localContext);
+            }
+            else if (object1 is SecurityTokenNotYetValidException securityTokenNotYetValidException1 &&
+                object2 is SecurityTokenNotYetValidException securityTokenNotYetValidException2)
+            {
+                AreDateTimesEqual(securityTokenNotYetValidException1.NotBefore,
+                    securityTokenNotYetValidException2.NotBefore,
+                    "SecurityTokenNotYetValidException1.NotBefore",
+                    "SecurityTokenNotYetValidException2.NotBefore",
+                    localContext);
+            }
+
+            return context.Merge(localContext);
+        }
+
         public static bool AreSignedInfosEqual(SignedInfo signedInfo1, SignedInfo signedInfo2, CompareContext context)
         {
             var localContext = new CompareContext(context);
@@ -1313,6 +1405,134 @@ namespace Microsoft.IdentityModel.TestUtils
 
             return context.Merge(localContext);
         }
+
+        internal static bool AreValidationErrorsEqual(ValidationError validationError1, ValidationError validationError2, CompareContext context)
+        {
+            var localContext = new CompareContext(context);
+            if (!ContinueCheckingEquality(validationError1, validationError2, localContext))
+                return context.Merge(localContext);
+
+            if (validationError1.StackFrames[0] == null || validationError2.StackFrames[0] == null)
+            {
+                localContext.Diffs.Add($"(validationError1.StackFrames[0] is null || validationError2.StackFrames[0] is null.");
+            }
+            else
+            {
+                // It is assumed that validationError1 is the result from the validation call graph.
+                // validationError2 is set when building the test case.
+                // Check the number of frames and the first filename.
+                if (validationError1.StackFrames.Count != validationError2.StackFrames.Count)
+                    localContext.Diffs.Add($"(validationError1.StackFrames.Count != validationError2.StackFrames.Count: {validationError1.StackFrames.Count}, {validationError2.StackFrames.Count})");
+
+                if (!validationError1.StackFrames[0].GetFileName().Contains(validationError2.StackFrames[0].GetFileName()))
+                {
+                    localContext.Diffs.Add($"(validationError1.StackFrames[0].GetFileName(): " +
+                        $"'{validationError1.StackFrames[0].GetFileName()}', " +
+                        $"does not contain validationError2.StackFrames[0].GetFileName():" +
+                        $"'{validationError2.StackFrames[0].GetFileName()}'.");
+                }
+            }
+
+            AreStringsEqual(
+                validationError1.GetType().FullName,
+                validationError2.GetType().FullName,
+                "validationError1.GetType().FullName",
+                "validationError2.GetType().FullName",
+                localContext);
+
+            AreStringsEqual(
+                validationError1.ExceptionType.ToString(),
+                validationError2.ExceptionType.ToString(),
+                "validationError1.ExceptionType",
+                "validationError2.ExceptionType",
+                localContext);
+
+            AreStringsEqual(
+                validationError1.FailureType,
+                validationError2.FailureType,
+                "validationError1.FailureType",
+                "validationError2.FailureType",
+                localContext);
+
+            // sometimes it is helpful to see the exception without stepping into the method, hence the locals.
+            Exception exception1 = validationError1.GetException();
+            Exception exception2 = validationError2.GetException();
+
+            AreExceptionsEqual(
+                exception1,
+                exception2,
+                localContext);
+
+            AreMessageDetailsEqual(
+                validationError1.MessageDetail,
+                validationError2.MessageDetail,
+                localContext);
+
+            // compare the actual exception's stack trace against the expected stack trace.
+            if (exception1.StackTrace == null)
+            {
+                localContext.Diffs.Add($"exception1.StackTrace is null. Exception type: {exception1.GetType().Name}");
+            }
+
+            return context.Merge(localContext);
+        }
+
+        internal static bool AreExceptionsEqual(Exception exception1, Exception exception2, CompareContext context)
+        {
+            var localContext = new CompareContext(context);
+            if (!ContinueCheckingEquality(exception1, exception2, localContext))
+                return context.Merge(localContext);
+
+            AreStringsEqual(
+                exception1.GetType().ToString(),
+                exception2.GetType().ToString(),
+                "exception1.GetType().ToString()",
+                "exception2.GetType().ToString()",
+                localContext);
+
+            AreStringsEqual(
+                exception1.Message,
+                exception2.Message,
+                "exception1.Message.ToString()",
+                "exception2.Message.ToString()",
+                localContext);
+
+            if (exception1.GetType() == typeof(SecurityTokenInvalidIssuerException))
+            {
+                AreStringsEqual(
+                    ((SecurityTokenInvalidIssuerException)exception1).InvalidIssuer,
+                    ((SecurityTokenInvalidIssuerException)exception2).InvalidIssuer,
+                    "((SecurityTokenInvalidIssuerException)exception1).InvalidIssuer",
+                    "((SecurityTokenInvalidIssuerException)exception2).InvalidIssuer",
+                    localContext);
+            }
+
+            return context.Merge(localContext);
+        }
+
+        internal static bool AreMessageDetailsEqual(MessageDetail messageDetail1, MessageDetail messageDetail2, CompareContext context)
+        {
+            var localContext = new CompareContext(context);
+            if (!ContinueCheckingEquality(messageDetail1, messageDetail2, localContext))
+                return context.Merge(localContext);
+
+            AreStringsEqual(
+                messageDetail1.GetType().ToString(),
+                messageDetail2.GetType().ToString(),
+                "messageDetail1.GetType().ToString()",
+                "messageDetail2.GetType().ToString()",
+                localContext);
+
+            AreStringsEqual(
+                messageDetail1.Message,
+                messageDetail2.Message,
+                "messageDetail1.Message",
+                "messageDetail2.Message",
+                localContext);
+
+            return context.Merge(localContext);
+        }
+
 
         private static bool AreValueCollectionsEqual(Object object1, Object object2, CompareContext context)
         {

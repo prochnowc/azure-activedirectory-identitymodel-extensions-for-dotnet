@@ -12,11 +12,13 @@ namespace Microsoft.IdentityModel.Tokens
     /// <summary>
     /// A derived <see cref="ClaimsIdentity"/> where claim retrieval is case-sensitive. The current <see cref="ClaimsIdentity"/> retrieves claims in a case-insensitive manner which is different than querying the underlying <see cref="SecurityToken"/>. The <see cref="CaseSensitiveClaimsIdentity"/> provides consistent retrieval logic between the <see cref="SecurityToken"/> and <see cref="ClaimsIdentity"/>.
     /// </summary>
+    [Serializable]
     public class CaseSensitiveClaimsIdentity : ClaimsIdentity
     {
         /// <summary>
         /// Gets the <see cref="SecurityToken"/> associated with this claims identity.
         /// </summary>
+        [field: NonSerialized]
         public SecurityToken SecurityToken { get; internal set; }
 
         /// <summary>
@@ -119,6 +121,14 @@ namespace Microsoft.IdentityModel.Tokens
         {
             return base.HasClaim(claim => claim?.Type.Equals(type, StringComparison.Ordinal) == true
                 && claim?.Value.Equals(value, StringComparison.Ordinal) == true);
+        }
+
+        /// <inheritdoc/>
+        public override ClaimsIdentity Clone()
+        {
+            CaseSensitiveClaimsIdentity claimsIdentity = new(this);
+
+            return claimsIdentity;
         }
     }
 

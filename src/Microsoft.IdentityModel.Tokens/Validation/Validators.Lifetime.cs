@@ -2,7 +2,6 @@
 // Licensed under the MIT License.
 
 using System;
-using System.Diagnostics;
 using Microsoft.IdentityModel.Logging;
 
 #nullable enable
@@ -18,9 +17,9 @@ namespace Microsoft.IdentityModel.Tokens
     /// <param name="securityToken">The <see cref="SecurityToken"/> that is being validated.</param>
     /// <param name="validationParameters">The <see cref="TokenValidationParameters"/> to be used for validating the token.</param>
     /// <param name="callContext"></param>
-    /// <returns>A <see cref="Result{TResult}"/>that contains the results of validating the issuer.</returns>
+    /// <returns>A <see cref="ValidationResult{TResult}"/>that contains the results of validating the issuer.</returns>
     /// <remarks>This delegate is not expected to throw.</remarks>
-    internal delegate Result<ValidatedLifetime> LifetimeValidatorDelegate(
+    internal delegate ValidationResult<ValidatedLifetime> LifetimeValidationDelegate(
         DateTime? notBefore,
         DateTime? expires,
         SecurityToken? securityToken,
@@ -40,7 +39,7 @@ namespace Microsoft.IdentityModel.Tokens
         /// <param name="securityToken">The <see cref="SecurityToken"/> being validated.</param>
         /// <param name="validationParameters">The <see cref="ValidationParameters"/> to be used for validating the token.</param>
         /// <param name="callContext"></param>
-        /// <returns>A <see cref="Result{TResult}"/> indicating whether validation was successful, and providing a <see cref="SecurityTokenInvalidLifetimeException"/> if it was not.</returns>
+        /// <returns>A <see cref="ValidationResult{TResult}"/> indicating whether validation was successful, and providing a <see cref="SecurityTokenInvalidLifetimeException"/> if it was not.</returns>
         /// <exception cref="ArgumentNullException">If 'validationParameters' is null.</exception>
         /// <exception cref="SecurityTokenNoExpirationException">If 'expires.HasValue' is false.</exception>
         /// <exception cref="SecurityTokenInvalidLifetimeException">If 'notBefore' is &gt; 'expires'.</exception>
@@ -48,7 +47,7 @@ namespace Microsoft.IdentityModel.Tokens
         /// <exception cref="SecurityTokenExpiredException">If 'expires' is &lt; DateTime.UtcNow.</exception>
         /// <remarks>All time comparisons apply <see cref="ValidationParameters.ClockSkew"/>.</remarks>
 #pragma warning disable CA1801 // TODO: remove pragma disable once callContext is used for logging
-        internal static Result<ValidatedLifetime> ValidateLifetime(
+        internal static ValidationResult<ValidatedLifetime> ValidateLifetime(
             DateTime? notBefore,
             DateTime? expires,
             SecurityToken? securityToken,
@@ -57,48 +56,57 @@ namespace Microsoft.IdentityModel.Tokens
 #pragma warning restore CA1801
         {
             if (validationParameters == null)
-                return ExceptionDetail.NullParameter(
+                return ValidationError.NullParameter(
                     nameof(validationParameters),
-                    new StackFrame(true));
+                    ValidationError.GetCurrentStackFrame());
 
             if (!expires.HasValue)
-                return new LifetimeExceptionDetail(
+                return new LifetimeValidationError(
                     new MessageDetail(
                         LogMessages.IDX10225,
                         LogHelper.MarkAsNonPII(securityToken == null ? "null" : securityToken.GetType().ToString())),
+                    ValidationFailureType.LifetimeValidationFailed,
                     typeof(SecurityTokenNoExpirationException),
-                    new StackFrame(true));
+                    ValidationError.GetCurrentStackFrame(),
+                    notBefore,
+                    expires);
 
             if (notBefore.HasValue && expires.HasValue && (notBefore.Value > expires.Value))
-                return new LifetimeExceptionDetail(
+                return new LifetimeValidationError(
                     new MessageDetail(
                         LogMessages.IDX10224,
                         LogHelper.MarkAsNonPII(notBefore.Value),
                         LogHelper.MarkAsNonPII(expires.Value)),
+                    ValidationFailureType.LifetimeValidationFailed,
                     typeof(SecurityTokenInvalidLifetimeException),
-                    new StackFrame(true),
-                    new(NotBeforeDate: notBefore, ExpirationDate: expires));
+                    ValidationError.GetCurrentStackFrame(),
+                    notBefore,
+                    expires);
 
-            DateTime utcNow = DateTime.UtcNow;
+            DateTime utcNow = validationParameters.TimeProvider.GetUtcNow().UtcDateTime;
             if (notBefore.HasValue && (notBefore.Value > DateTimeUtil.Add(utcNow, validationParameters.ClockSkew)))
-                return new LifetimeExceptionDetail(
+                return new LifetimeValidationError(
                     new MessageDetail(
                         LogMessages.IDX10222,
                         LogHelper.MarkAsNonPII(notBefore.Value),
                         LogHelper.MarkAsNonPII(utcNow)),
+                    ValidationFailureType.LifetimeValidationFailed,
                     typeof(SecurityTokenNotYetValidException),
-                    new StackFrame(true),
-                    new(NotBeforeDate: notBefore, ExpirationDate: expires));
+                    ValidationError.GetCurrentStackFrame(),
+                    notBefore,
+                    expires);
 
             if (expires.HasValue && (expires.Value < DateTimeUtil.Add(utcNow, validationParameters.ClockSkew.Negate())))
-                return new LifetimeExceptionDetail(
+                return new LifetimeValidationError(
                     new MessageDetail(
                         LogMessages.IDX10223,
                         LogHelper.MarkAsNonPII(expires.Value),
                         LogHelper.MarkAsNonPII(utcNow)),
+                    ValidationFailureType.LifetimeValidationFailed,
                     typeof(SecurityTokenExpiredException),
-                    new StackFrame(true),
-                    new(NotBeforeDate: null, ExpirationDate: expires));
+                    ValidationError.GetCurrentStackFrame(),
+                    notBefore,
+                    expires);
 
             // if it reaches here, that means lifetime of the token is valid
             return new ValidatedLifetime(notBefore, expires);

@@ -87,6 +87,12 @@ namespace Microsoft.IdentityModel.Tokens
                 return;
             }
 
+            if (!validationParameters.RequireAudience && !audiences.Any())
+            {
+                LogHelper.LogWarning(LogMessages.IDX10277);
+                return;
+            }
+
             if (audiences == null)
                 throw LogHelper.LogExceptionMessage(new SecurityTokenInvalidAudienceException(LogMessages.IDX10207) { InvalidAudience = null });
 
@@ -404,18 +410,18 @@ namespace Microsoft.IdentityModel.Tokens
             X509SecurityKey x509SecurityKey = securityKey as X509SecurityKey;
             if (x509SecurityKey?.Certificate is X509Certificate2 cert)
             {
-                DateTime utcNow = DateTime.UtcNow;
+                DateTime utcNow = validationParameters.TimeProvider.GetUtcNow().UtcDateTime;
                 var notBeforeUtc = cert.NotBefore.ToUniversalTime();
                 var notAfterUtc = cert.NotAfter.ToUniversalTime();
 
                 if (notBeforeUtc > DateTimeUtil.Add(utcNow, validationParameters.ClockSkew))
-                    throw LogHelper.LogExceptionMessage(new SecurityTokenInvalidSigningKeyException(LogHelper.FormatInvariant(LogMessages.IDX10248, LogHelper.MarkAsNonPII(notBeforeUtc), LogHelper.MarkAsNonPII(utcNow))));
+                    throw LogHelper.LogExceptionMessage(new SecurityTokenInvalidSigningKeyException(LogHelper.FormatInvariant(LogMessages.IDX10248, LogHelper.MarkAsNonPII(notBeforeUtc), LogHelper.MarkAsNonPII(utcNow))) { SigningKey = securityKey });
 
                 if (LogHelper.IsEnabled(EventLogLevel.Informational))
                     LogHelper.LogInformation(LogMessages.IDX10250, LogHelper.MarkAsNonPII(notBeforeUtc), LogHelper.MarkAsNonPII(utcNow));
 
                 if (notAfterUtc < DateTimeUtil.Add(utcNow, validationParameters.ClockSkew.Negate()))
-                    throw LogHelper.LogExceptionMessage(new SecurityTokenInvalidSigningKeyException(LogHelper.FormatInvariant(LogMessages.IDX10249, LogHelper.MarkAsNonPII(notAfterUtc), LogHelper.MarkAsNonPII(utcNow))));
+                    throw LogHelper.LogExceptionMessage(new SecurityTokenInvalidSigningKeyException(LogHelper.FormatInvariant(LogMessages.IDX10249, LogHelper.MarkAsNonPII(notAfterUtc), LogHelper.MarkAsNonPII(utcNow))) { SigningKey = securityKey });
 
                 if (LogHelper.IsEnabled(EventLogLevel.Informational))
                     LogHelper.LogInformation(LogMessages.IDX10251, LogHelper.MarkAsNonPII(notAfterUtc), LogHelper.MarkAsNonPII(utcNow));

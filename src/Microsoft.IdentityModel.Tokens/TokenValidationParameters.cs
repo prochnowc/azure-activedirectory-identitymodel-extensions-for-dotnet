@@ -459,9 +459,13 @@ namespace Microsoft.IdentityModel.Tokens
         public bool RefreshBeforeValidation { get; set; }
 
         /// <summary>
-        /// Gets or sets a value indicating whether SAML tokens must have at least one AudienceRestriction.
+        /// Gets or sets a value indicating whether SAML or JWT tokens must have at least one AudienceRestriction.
         /// The default is <c>true</c>.
         /// </summary>
+        /// <remarks>
+        /// If set to false and the Audience is null, Audience validation will be skipped.
+        /// If set to false and the Audience is not null, the Audience will still be validated.
+        /// </remarks>
         [DefaultValue(true)]
         public bool RequireAudience { get; set; }
 
@@ -539,6 +543,11 @@ namespace Microsoft.IdentityModel.Tokens
         /// If set, this delegate will be called to validate the signature of the token, instead of default processing.
         /// </remarks>
         public SignatureValidatorUsingConfiguration SignatureValidatorUsingConfiguration { get; set; }
+
+        /// <summary>
+        /// Gets or sets the time provider.
+        /// </summary>
+        internal TimeProvider TimeProvider { get; set; } = TimeProvider.System;
 
         /// <summary>
         /// Gets or sets the <see cref="SecurityKey"/> that is to be used for decryption.

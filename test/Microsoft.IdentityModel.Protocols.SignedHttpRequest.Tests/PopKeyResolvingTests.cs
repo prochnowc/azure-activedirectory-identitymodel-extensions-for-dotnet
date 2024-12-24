@@ -21,7 +21,7 @@ namespace Microsoft.IdentityModel.Protocols.SignedHttpRequest.Tests
     {
         internal const string _defaultJkuDomain = "contoso.com";
 
-        [Theory, MemberData(nameof(ResolvePopKeyFromCnfClaimAsyncTheoryData))]
+        [Theory, MemberData(nameof(ResolvePopKeyFromCnfClaimAsyncTheoryData), DisableDiscoveryEnumeration = true)]
         public async Task ResolvePopKeyFromCnfClaimAsync(ResolvePopKeyTheoryData theoryData)
         {
             var context = TestUtilities.WriteHeader($"{this}.ResolvePopKeyFromCnfClaimAsync", theoryData);
@@ -142,7 +142,7 @@ namespace Microsoft.IdentityModel.Protocols.SignedHttpRequest.Tests
             }
         }
 
-        [Theory, MemberData(nameof(ResolvePopKeyAsyncTheoryData))]
+        [Theory, MemberData(nameof(ResolvePopKeyAsyncTheoryData), DisableDiscoveryEnumeration = true)]
         public async Task ResolvePopKeyAsync(ResolvePopKeyTheoryData theoryData)
         {
             var context = TestUtilities.WriteHeader($"{this}.ResolvePopKeyTheoryData", theoryData);
@@ -198,7 +198,7 @@ namespace Microsoft.IdentityModel.Protocols.SignedHttpRequest.Tests
             }
         }
 
-        [Theory, MemberData(nameof(ResolvePopKeyFromJwkTheoryData))]
+        [Theory, MemberData(nameof(ResolvePopKeyFromJwkTheoryData), DisableDiscoveryEnumeration = true)]
         public void ResolvePopKeyFromJwk(ResolvePopKeyTheoryData theoryData)
         {
             var context = TestUtilities.WriteHeader($"{this}.ResolvePopKeyTheoryData", theoryData);
@@ -269,7 +269,7 @@ namespace Microsoft.IdentityModel.Protocols.SignedHttpRequest.Tests
             }
         }
 
-        [Theory, MemberData(nameof(ResolvePopKeyFromJweTheoryData))]
+        [Theory, MemberData(nameof(ResolvePopKeyFromJweTheoryData), DisableDiscoveryEnumeration = true)]
         public async Task ResolvePopKeyFromJweAsync(ResolvePopKeyTheoryData theoryData)
         {
             var context = TestUtilities.WriteHeader($"{this}.ResolvePopKeyFromJwe", theoryData);
@@ -393,7 +393,7 @@ namespace Microsoft.IdentityModel.Protocols.SignedHttpRequest.Tests
             }
         }
 
-        [Theory, MemberData(nameof(ResolvePopKeyFromJkuTheoryData))]
+        [Theory, MemberData(nameof(ResolvePopKeyFromJkuTheoryData), DisableDiscoveryEnumeration = true)]
         public async Task ResolvePopKeyFromJkuAsync(ResolvePopKeyTheoryData theoryData)
         {
             var context = TestUtilities.WriteHeader($"{this}.ResolvePopKeyFromJkuAsync", theoryData);
@@ -562,7 +562,7 @@ namespace Microsoft.IdentityModel.Protocols.SignedHttpRequest.Tests
             }
         }
 
-        [Theory, MemberData(nameof(GetCnfClaimValueTheoryData))]
+        [Theory, MemberData(nameof(GetCnfClaimValueTheoryData), DisableDiscoveryEnumeration = true)]
         public void GetCnfClaimValue(ResolvePopKeyTheoryData theoryData)
         {
             var context = TestUtilities.WriteHeader($"{this}.GetCnfClaimValue", theoryData);
@@ -625,7 +625,7 @@ namespace Microsoft.IdentityModel.Protocols.SignedHttpRequest.Tests
             }
         }
 
-        [Theory, MemberData(nameof(ResolvePopKeyFromJkuKidTheoryData))]
+        [Theory, MemberData(nameof(ResolvePopKeyFromJkuKidTheoryData), DisableDiscoveryEnumeration = true)]
         public async Task ResolvePopKeyFromJkuKidAsync(ResolvePopKeyTheoryData theoryData)
         {
             var context = TestUtilities.WriteHeader($"{this}.ResolvePopKeyFromJkuKidAsync", theoryData);
@@ -742,7 +742,7 @@ namespace Microsoft.IdentityModel.Protocols.SignedHttpRequest.Tests
             }
         }
 
-        [Theory(Skip = "flaky"), MemberData(nameof(GetPopKeysFromJkuAsyncTheoryData))]
+        [Theory, MemberData(nameof(GetPopKeysFromJkuAsyncTheoryData), DisableDiscoveryEnumeration = true)]
         public async Task GetPopKeysFromJkuAsync(ResolvePopKeyTheoryData theoryData)
         {
             var context = TestUtilities.WriteHeader($"{this}.GetPopKeysFromJkuAsync", theoryData);
@@ -771,26 +771,23 @@ namespace Microsoft.IdentityModel.Protocols.SignedHttpRequest.Tests
             {
                 return new TheoryData<ResolvePopKeyTheoryData>
                 {
-                    new ResolvePopKeyTheoryData
+                    new ResolvePopKeyTheoryData("InvalidJkuUrlNull")
                     {
                         First = true,
                         JkuSetUrl = null,
                         ExpectedException = ExpectedException.ArgumentNullException(),
-                        TestId = "InvalidJkuUrlNull",
                     },
-                    new ResolvePopKeyTheoryData
+                    new ResolvePopKeyTheoryData("InvalidJkuUrlEmptyString")
                     {
                         JkuSetUrl = string.Empty,
                         ExpectedException = ExpectedException.ArgumentNullException(),
-                        TestId = "InvalidJkuUrlEmptyString",
                     },
-                    new ResolvePopKeyTheoryData
+                    new ResolvePopKeyTheoryData("InvalidHttpsRequired")
                     {
                         JkuSetUrl = "http://www.contoso.com",
                         ExpectedException = new ExpectedException(typeof(SignedHttpRequestInvalidPopKeyException), "IDX23006"),
-                        TestId = "InvalidHttpsRequired",
                     },
-                    new ResolvePopKeyTheoryData
+                    new ResolvePopKeyTheoryData("InvalidNoContentReturned")
                     {
                         JkuSetUrl = "https://www.contoso.com",
                         SignedHttpRequestValidationParameters = new SignedHttpRequestValidationParameters()
@@ -798,9 +795,8 @@ namespace Microsoft.IdentityModel.Protocols.SignedHttpRequest.Tests
                             HttpClientProvider = () => HttpResponseMessageUtils.SetupHttpClientThatReturns(string.Empty),
                         },
                         ExpectedException = new ExpectedException(typeof(SignedHttpRequestInvalidPopKeyException), "IDX23022", null, true),
-                        TestId = "InvalidNoContentReturned",
                     },
-                    new ResolvePopKeyTheoryData
+                    new ResolvePopKeyTheoryData("InvalidHttpNoContentReturned")
                     {
                         JkuSetUrl = "http://www.contoso.com",
                         SignedHttpRequestValidationParameters = new SignedHttpRequestValidationParameters()
@@ -809,20 +805,17 @@ namespace Microsoft.IdentityModel.Protocols.SignedHttpRequest.Tests
                             HttpClientProvider = () => HttpResponseMessageUtils.SetupHttpClientThatReturns(string.Empty),
                         },
                         ExpectedException = new ExpectedException(typeof(SignedHttpRequestInvalidPopKeyException), "IDX23022", null, true),
-                        TestId = "InvalidHttpNoContentReturned",
                     },
-                    // TODO - find out why test is timing out in the AzureDevOps build, appears to be unrelated to the caching changes
-                    //new ResolvePopKeyTheoryData
-                    //{
-                    //    JkuSetUrl = "http://www.contoso.com",
-                    //    SignedHttpRequestValidationParameters = new SignedHttpRequestValidationParameters()
-                    //    {
-                    //        RequireHttpsForJkuResourceRetrieval = false,
-                    //    },
-                    //    ExpectedException = new ExpectedException(typeof(SignedHttpRequestInvalidPopKeyException), "IDX23022", typeof(ArgumentException)),
-                    //    TestId = "Valid0KeysReturnedLive",
-                    //},
-                    new ResolvePopKeyTheoryData
+                    new ResolvePopKeyTheoryData("Valid0KeysReturnedLive")
+                    {
+                        JkuSetUrl = "http://www.contoso.com",
+                        SignedHttpRequestValidationParameters = new SignedHttpRequestValidationParameters()
+                        {
+                            RequireHttpsForJkuResourceRetrieval = false,
+                        },
+                        ExpectedException = new ExpectedException(typeof(SignedHttpRequestInvalidPopKeyException), "IDX23022", null, true),
+                    },
+                    new ResolvePopKeyTheoryData("Valid0KeysReturned")
                     {
                         JkuSetUrl = "https://www.contoso.com",
                         SignedHttpRequestValidationParameters = new SignedHttpRequestValidationParameters()
@@ -830,9 +823,8 @@ namespace Microsoft.IdentityModel.Protocols.SignedHttpRequest.Tests
                             HttpClientProvider = () => HttpResponseMessageUtils.SetupHttpClientThatReturns("{\"test\": 1}"),
                         },
                         ExpectedNumberOfPopKeysReturned = 0,
-                        TestId = "Valid0KeysReturned",
                     },
-                    new ResolvePopKeyTheoryData
+                    new ResolvePopKeyTheoryData("Valid2KeysReturned")
                     {
                         JkuSetUrl = "https://www.contoso.com",
                         SignedHttpRequestValidationParameters = new SignedHttpRequestValidationParameters()
@@ -840,9 +832,8 @@ namespace Microsoft.IdentityModel.Protocols.SignedHttpRequest.Tests
                             HttpClientProvider = () => HttpResponseMessageUtils.SetupHttpClientThatReturns(DataSets.JsonWebKeySetString1),
                         },
                         ExpectedNumberOfPopKeysReturned = 2,
-                        TestId = "Valid2KeysReturned",
                     },
-                    new ResolvePopKeyTheoryData
+                    new ResolvePopKeyTheoryData("Valid3KeysReturned")
                     {
                         JkuSetUrl = "https://www.contoso.com",
                         SignedHttpRequestValidationParameters = new SignedHttpRequestValidationParameters()
@@ -850,13 +841,12 @@ namespace Microsoft.IdentityModel.Protocols.SignedHttpRequest.Tests
                             HttpClientProvider = () => HttpResponseMessageUtils.SetupHttpClientThatReturns(DataSets.JsonWebKeySetECCString),
                         },
                         ExpectedNumberOfPopKeysReturned = 3,
-                        TestId = "Valid3KeysReturned",
                     },
                 };
             }
         }
 
-        [Theory, MemberData(nameof(ResolvePopKeyFromKeyIdentifierAsyncTheoryData))]
+        [Theory, MemberData(nameof(ResolvePopKeyFromKeyIdentifierAsyncTheoryData), DisableDiscoveryEnumeration = true)]
         public async Task ResolvePopKeyFromKeyIdentifierAsync(ResolvePopKeyTheoryData theoryData)
         {
             var context = TestUtilities.WriteHeader($"{this}.ResolvePopKeyFromKeyIdentifierAsync", theoryData);

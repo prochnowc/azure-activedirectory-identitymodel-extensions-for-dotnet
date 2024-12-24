@@ -25,6 +25,8 @@ namespace Microsoft.IdentityModel.Tokens
         [NonSerialized]
         private string _stackTrace;
 
+        private ValidationError _validationError;
+
         /// <summary>
         /// Initializes a new instance of the <see cref="SecurityTokenException"/> class.
         /// </summary>
@@ -67,6 +69,15 @@ namespace Microsoft.IdentityModel.Tokens
         }
 
         /// <summary>
+        /// Sets the <see cref="ValidationError"/> that caused the exception.
+        /// </summary>
+        /// <param name="validationError"></param>
+        internal void SetValidationError(ValidationError validationError)
+        {
+            _validationError = validationError;
+        }
+
+        /// <summary>
         /// Gets the stack trace that is captured when the exception is created.
         /// </summary>
         public override string StackTrace
@@ -75,13 +86,13 @@ namespace Microsoft.IdentityModel.Tokens
             {
                 if (_stackTrace == null)
                 {
-                    if (ExceptionDetail == null)
+                    if (_validationError == null)
                         return base.StackTrace;
 #if NET8_0_OR_GREATER
-                    _stackTrace = new StackTrace(ExceptionDetail.StackFrames).ToString();
+                    _stackTrace = new StackTrace(_validationError.StackFrames).ToString();
 #else
                     StringBuilder sb = new();
-                    foreach (StackFrame frame in ExceptionDetail.StackFrames)
+                    foreach (StackFrame frame in _validationError.StackFrames)
                     {
                         sb.Append(frame.ToString());
                         sb.Append(Environment.NewLine);
@@ -102,11 +113,6 @@ namespace Microsoft.IdentityModel.Tokens
         {
             get => base.Source;
             set => base.Source = value;
-        }
-
-        internal ExceptionDetail ExceptionDetail
-        {
-            get; set;
         }
 
 #if NET472 || NETSTANDARD2_0 || NET6_0_OR_GREATER

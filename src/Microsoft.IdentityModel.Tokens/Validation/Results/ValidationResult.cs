@@ -2,166 +2,193 @@
 // Licensed under the MIT License.
 
 using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Security.Claims;
-using System.Threading;
+using Microsoft.IdentityModel.Logging;
 
 #nullable enable
 namespace Microsoft.IdentityModel.Tokens
 {
     /// <summary>
-    /// Contains results of a single step in validating a <see cref="SecurityToken"/>.
-    /// A <see cref="TokenValidationResult"/> maintains a list of <see cref="ValidationResult"/> for each step in the token validation.
+    /// Represents a validation result that can be either valid or invalid.
     /// </summary>
-    internal class ValidationResult
+    /// <typeparam name="TResult"></typeparam>
+    internal readonly struct ValidationResult<TResult> : IEquatable<ValidationResult<TResult>>
     {
+        readonly TResult? _result;
+        readonly ValidationError? _error;
+
         /// <summary>
-        /// Creates an instance of <see cref="ValidationResult"/>
+        /// Creates a successful, valid validation result.
         /// </summary>
-        /// <param name="securityToken">The <see cref="SecurityToken"/> that is being validated.</param>
-        /// <param name="tokenHandler">The <see cref="TokenHandler"/> that is being used to validate the token.</param>
-        /// <param name="validationParameters">The <see cref="ValidationParameters"/> to be used for validating the token.</param>
-        internal ValidationResult(
-            SecurityToken securityToken,
-            TokenHandler tokenHandler,
-            ValidationParameters validationParameters)
+        /// <param name="result">The value associated with the success.</param>
+        public ValidationResult(TResult result)
         {
-            TokenHandler = tokenHandler ?? throw new ArgumentNullException(nameof(tokenHandler));
-            SecurityToken = securityToken ?? throw new ArgumentNullException(nameof(securityToken));
-            ValidationParameters = validationParameters ?? throw new ArgumentNullException(nameof(validationParameters));
+            _result = result;
+            _error = null;
+            IsValid = true;
         }
 
         /// <summary>
-        /// Logs the validation result.
+        /// Creates an error, invalid validation result.
         /// </summary>
-#pragma warning disable CA1822 // Mark members as static
-        public void Log()
-#pragma warning restore CA1822 // Mark members as static
+        /// <param name="error">The error associated with the failure.</param>
+        public ValidationResult(ValidationError error)
         {
-            // TODO - Do we need this, how will it work?
+            _result = default;
+            _error = error;
+            IsValid = false;
         }
 
-        public SecurityToken SecurityToken { get; private set; }
-
-        public TokenHandler TokenHandler { get; private set; }
-
-        public ValidationParameters ValidationParameters { get; private set; }
-
-        #region Validation Results
-        public ValidationResult? ActorValidationResult { get; internal set; }
-        public string? ValidatedAudience { get; internal set; }
-        public ValidatedIssuer? ValidatedIssuer { get; internal set; }
-        public ValidatedLifetime? ValidatedLifetime { get; internal set; }
-        public DateTime? ValidatedTokenReplayExpirationTime { get; internal set; }
-        public ValidatedTokenType? ValidatedTokenType { get; internal set; }
-        public SecurityKey? ValidatedSigningKey { get; internal set; }
-        public ValidatedSigningKeyLifetime? ValidatedSigningKeyLifetime { get; internal set; }
-        #endregion
-
-        #region Claims
-        // Fields lazily initialized in a thread-safe manner. _claimsIdentity is protected by the _claimsIdentitySyncObj
-        // lock, and since null is a valid initialized value, _claimsIdentityInitialized tracks whether or not it's valid.
-        // _claims is constructed by reading the data from the ClaimsIdentity and is synchronized using Interlockeds
-        // to ensure only one dictionary is published in the face of concurrent access (but if there's a race condition,
-        // multiple dictionaries could be constructed, with only one published for all to see). Simiarly, _propertyBag
-        // is initalized with Interlocked to ensure only a single instance is published in the face of concurrent use.
-        // _claimsIdentityInitialized only ever transitions from false to true, and is volatile to reads/writes are not
-        // reordered relative to the other operations. The rest of the objects are not because the .NET memory model
-        // guarantees object writes are store releases and that reads won't be introduced.
-        private volatile bool _claimsIdentityInitialized;
-        private object? _claimsIdentitySyncObj;
-        private ClaimsIdentity? _claimsIdentity;
-        private Dictionary<string, object>? _claims;
+        /// <summary>
+        /// Empty constructor implementation to prevent creating an empty result.
+        /// </summary>
+        /// <remarks>Throws an <see cref="InvalidOperationException"/> when called as this should never be used. Always initialize Result with either a value or error.</remarks>
+        /// <exception cref="InvalidOperationException">Thrown when called.</exception>
+        [Obsolete("Cannot create an empty validation result", true)]
+        public ValidationResult() => throw new InvalidOperationException("Cannot create an empty validation result");
 
         /// <summary>
-        /// The <see cref="Dictionary{String, Object}"/> created from the validated security token.
+        /// Creates a successful, valid result implicitly from the value.
         /// </summary>
-        public IDictionary<string, object> Claims
+        /// <param name="result">The value to be stored in the result.</param>
+        public static implicit operator ValidationResult<TResult>(TResult result) => new(result);
+
+        /// <summary>
+        /// Creates an error result implicitly from the error value.
+        /// </summary>
+        /// <param name="error">The error to be stored in the result.</param>
+        public static implicit operator ValidationResult<TResult>(ValidationError error) => new(error);
+
+        /// <summary>
+        /// Gets a value indicating whether the result is valid.
+        /// </summary>
+        public readonly bool IsValid { get; }
+
+        /// <summary>
+        /// Unwraps the result.
+        /// </summary>
+        /// <returns>The wrapped result value.</returns>
+        /// <remarks>This method is only valid if the result type is valid.</remarks>
+        /// <exception cref="InvalidOperationException">Thrown if attempted to unwrap the value from a non valid result.</exception>
+        internal TResult UnwrapResult() => IsValid ? _result! : throw new InvalidOperationException("Cannot unwrap error result");
+
+        /// <summary>
+        /// Unwraps the error.
+        /// </summary>
+        /// <returns>The wrapped error value.</returns>
+        /// <remarks>This method is only valid if the result type is not valid.</remarks>
+        /// <exception cref="InvalidOperationException">Thrown if attempted to unwrap an error from a valid result.</exception>
+        internal ValidationError UnwrapError() => IsValid ? throw new InvalidOperationException("Cannot unwrap success result") : _error!;
+
+        /// <summary>
+        /// Gets the error associated with the validation result.
+        /// </summary>
+        /// <returns>The error associated with the validation result.</returns>
+        /// <remarks>This property is only valid if the result type is not valid.</remarks>
+        public ValidationError? Error
         {
             get
             {
-                if (_claims is null)
-                {
-                    Interlocked.CompareExchange(ref _claims, TokenUtilities.CreateDictionaryFromClaims(ClaimsIdentity.Claims), null);
-                }
+                if (IsValid)
+                    LogHelper.LogWarning("Warning: Accessing the Error property in a valid result is invalid.");
 
-                return _claims;
+                return _error;
             }
         }
 
         /// <summary>
-        /// The <see cref="ClaimsIdentity"/> created from the validated security token.
+        /// Gets the result associated with the validation result.
         /// </summary>
-        public ClaimsIdentity ClaimsIdentity
+        /// <returns>The result associated with the validation result.</returns>
+        /// <remarks>This property is only valid if the result type is valid.</remarks>
+        public TResult? Result
         {
             get
             {
-                if (!_claimsIdentityInitialized)
+                if (IsValid)
+                    return _result;
+                else
                 {
-                    lock (ClaimsIdentitySyncObj)
-                    {
-                        return ClaimsIdentityNoLocking;
-                    }
-                }
-
-                return _claimsIdentity!;
-            }
-            set
-            {
-                if (value is null)
-                    throw new ArgumentNullException(nameof(value), "ClaimsIdentity cannot be set as null.");
-
-                lock (ClaimsIdentitySyncObj)
-                {
-                    ClaimsIdentityNoLocking = value;
+                    LogHelper.LogWarning("Warning: Accessing the Result property in an invalid result may yield unexpected results.");
+                    return default;
                 }
             }
         }
 
         /// <summary>
-        /// Gets or sets the <see cref="_claimsIdentity"/> without synchronization. All accesses must either
-        /// be protected or used when the caller knows access is serialized.
+        /// 
         /// </summary>
-        internal ClaimsIdentity ClaimsIdentityNoLocking
+        /// <param name="obj"></param>
+        /// <returns></returns>
+        public override bool Equals(object? obj)
         {
-            get
+            if (obj is ValidationResult<TResult> other)
             {
-                if (!_claimsIdentityInitialized)
-                {
-                    Debug.Assert(_claimsIdentity is null);
-
-                    _claimsIdentity = TokenHandler.CreateClaimsIdentityInternal(SecurityToken, ValidationParameters, ValidatedIssuer?.Issuer);
-                    _claimsIdentityInitialized = true;
-                }
-
-                return _claimsIdentity!;
+                return Equals(other);
             }
-            set
-            {
-                Debug.Assert(value is not null);
-                _claimsIdentity = value;
-                _claims = null;
-                _claimsIdentityInitialized = true;
-            }
+
+            return false;
         }
 
-        /// <summary>Gets the object to use in <see cref="ClaimsIdentity"/> for double-checked locking.</summary>
-        private object ClaimsIdentitySyncObj
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <returns></returns>
+        /// <exception cref="NotImplementedException"></exception>
+        public override int GetHashCode()
         {
-            get
-            {
-                object? syncObj = _claimsIdentitySyncObj;
-                if (syncObj is null)
-                {
-                    Interlocked.CompareExchange(ref _claimsIdentitySyncObj, new object(), null);
-                    syncObj = _claimsIdentitySyncObj;
-                }
-
-                return syncObj;
-            }
+            if (IsValid)
+                return _result!.GetHashCode();
+            else
+                return _error!.GetHashCode();
         }
-        #endregion
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="left"></param>
+        /// <param name="right"></param>
+        /// <returns></returns>
+        public static bool operator ==(ValidationResult<TResult> left, ValidationResult<TResult> right)
+        {
+            return left.Equals(right);
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="left"></param>
+        /// <param name="right"></param>
+        /// <returns></returns>
+        public static bool operator !=(ValidationResult<TResult> left, ValidationResult<TResult> right)
+        {
+            return !(left == right);
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="other"></param>
+        /// <returns></returns>
+        public bool Equals(ValidationResult<TResult> other)
+        {
+            if (other.IsValid != IsValid)
+                return false;
+
+            if (IsValid)
+                return _result!.Equals(other._result);
+            else
+                return _error!.Equals(other._error);
+        }
+
+        /// <summary>
+        /// Casts the result to a <see cref="ValidationResult{TResult}"/>.
+        /// </summary>#
+        /// <remarks>Required for compatibility, see CA2225 for more information</remarks>
+        /// <returns>The existing instance.</returns>
+        public ValidationResult<TResult> ToResult()
+        {
+            return this;
+        }
     }
 }
-#nullable disable
+#nullable restore

@@ -2,7 +2,6 @@
 // Licensed under the MIT License.
 
 using System;
-using System.Diagnostics;
 using System.Security.Cryptography.X509Certificates;
 using Microsoft.IdentityModel.Logging;
 
@@ -19,14 +18,14 @@ namespace Microsoft.IdentityModel.Tokens
     /// <param name="validationParameters">The <see cref="ValidationParameters"/> to be used for validating the token.</param>
     /// <param name="configuration">The <see cref="BaseConfiguration"/> to be used for validation.</param>
     /// <param name="callContext">The <see cref="CallContext"/> to be used for logging.</param> 
-    /// <returns>A <see cref="Result{TResult}"/>that contains the results of validating the issuer.</returns>
+    /// <returns>A <see cref="ValidationResult{TResult}"/>that contains the results of validating the issuer.</returns>
     /// <remarks>This delegate is not expected to throw.</remarks>
-    internal delegate Result<ValidatedSigningKeyLifetime> IssuerSigningKeyValidatorDelegate(
+    internal delegate ValidationResult<ValidatedSigningKeyLifetime> IssuerSigningKeyValidationDelegate(
         SecurityKey signingKey,
         SecurityToken securityToken,
         ValidationParameters validationParameters,
         BaseConfiguration? configuration,
-        CallContext? callContext);
+        CallContext callContext);
 
     /// <summary>
     /// SigningKeyValidation
@@ -42,10 +41,10 @@ namespace Microsoft.IdentityModel.Tokens
         /// <param name="validationParameters">The <see cref="ValidationParameters"/> to be used for validating the token.</param>
         /// <param name="configuration">The <see cref="BaseConfiguration"/> to be used for validation.</param>
         /// <param name="callContext">The <see cref="CallContext"/> to be used for logging.</param>
-        /// <exception cref="ArgumentNullException"> if 'securityKey' is null and ValidateIssuerSigningKey is true.</exception>
-        /// <exception cref="ArgumentNullException"> if 'securityToken' is null and ValidateIssuerSigningKey is true.</exception>
-        /// <exception cref="ArgumentNullException"> if 'validationParameters' is null.</exception>
-        internal static Result<ValidatedSigningKeyLifetime> ValidateIssuerSigningKey(
+        /// <exception cref="SecurityTokenArgumentNullException"> if 'securityKey' is null and ValidateIssuerSigningKey is true.</exception>
+        /// <exception cref="SecurityTokenArgumentNullException"> if 'securityToken' is null and ValidateIssuerSigningKey is true.</exception>
+        /// <exception cref="SecurityTokenArgumentNullException"> if 'validationParameters' is null.</exception>
+        internal static ValidationResult<ValidatedSigningKeyLifetime> ValidateIssuerSigningKey(
             SecurityKey securityKey,
             SecurityToken securityToken,
             ValidationParameters validationParameters,
@@ -55,21 +54,22 @@ namespace Microsoft.IdentityModel.Tokens
             CallContext? callContext)
         {
             if (validationParameters == null)
-                return ExceptionDetail.NullParameter(
+                return IssuerSigningKeyValidationError.NullParameter(
                     nameof(validationParameters),
-                    new StackFrame(true));
+                    ValidationError.GetCurrentStackFrame());
 
             if (securityKey == null)
-                return new ExceptionDetail(
+                return new IssuerSigningKeyValidationError(
                     new MessageDetail(LogMessages.IDX10253, nameof(securityKey)),
                     ValidationFailureType.SigningKeyValidationFailed,
-                    typeof(ArgumentNullException),
-                    new StackFrame(true));
+                    typeof(SecurityTokenArgumentNullException),
+                    ValidationError.GetCurrentStackFrame(),
+                    securityKey);
 
             if (securityToken == null)
-                return ExceptionDetail.NullParameter(
+                return IssuerSigningKeyValidationError.NullParameter(
                     nameof(securityToken),
-                    new StackFrame(true));
+                    ValidationError.GetCurrentStackFrame());
 
             return ValidateIssuerSigningKeyLifeTime(securityKey, validationParameters, callContext);
         }
@@ -81,13 +81,13 @@ namespace Microsoft.IdentityModel.Tokens
         /// <param name="validationParameters">The <see cref="ValidationParameters"/> to be used for validating the token.</param>
         /// <param name="callContext"></param>
 #pragma warning disable CA1801 // Review unused parameters
-        internal static Result<ValidatedSigningKeyLifetime> ValidateIssuerSigningKeyLifeTime(
+        internal static ValidationResult<ValidatedSigningKeyLifetime> ValidateIssuerSigningKeyLifeTime(
             SecurityKey securityKey,
             ValidationParameters validationParameters,
             CallContext? callContext)
 #pragma warning restore CA1801 // Review unused parameters
         {
-            DateTime utcNow = DateTime.UtcNow;
+            DateTime utcNow = validationParameters.TimeProvider.GetUtcNow().UtcDateTime;
             DateTime? notBeforeUtc = null;
             DateTime? notAfterUtc = null;
             X509SecurityKey? x509SecurityKey = securityKey as X509SecurityKey;
@@ -98,28 +98,30 @@ namespace Microsoft.IdentityModel.Tokens
                 notAfterUtc = cert.NotAfter.ToUniversalTime();
 
                 if (notBeforeUtc > DateTimeUtil.Add(utcNow, validationParameters.ClockSkew))
-                    return new ExceptionDetail(
+                    return new IssuerSigningKeyValidationError(
                         new MessageDetail(
                             LogMessages.IDX10248,
                             LogHelper.MarkAsNonPII(notBeforeUtc),
                             LogHelper.MarkAsNonPII(utcNow)),
                         ValidationFailureType.SigningKeyValidationFailed,
                         typeof(SecurityTokenInvalidSigningKeyException),
-                        new StackFrame(true));
+                        ValidationError.GetCurrentStackFrame(),
+                        securityKey);
 
                 //TODO: Move to CallContext
                 //if (LogHelper.IsEnabled(EventLogLevel.Informational))
                 //    LogHelper.LogInformation(LogMessages.IDX10250, LogHelper.MarkAsNonPII(notBeforeUtc), LogHelper.MarkAsNonPII(utcNow));
 
                 if (notAfterUtc < DateTimeUtil.Add(utcNow, validationParameters.ClockSkew.Negate()))
-                    return new ExceptionDetail(
+                    return new IssuerSigningKeyValidationError(
                         new MessageDetail(
                             LogMessages.IDX10249,
                             LogHelper.MarkAsNonPII(notAfterUtc),
                             LogHelper.MarkAsNonPII(utcNow)),
                         ValidationFailureType.SigningKeyValidationFailed,
                         typeof(SecurityTokenInvalidSigningKeyException),
-                        new StackFrame(true));
+                        ValidationError.GetCurrentStackFrame(),
+                        securityKey);
 
                 // TODO: Move to CallContext
                 //if (LogHelper.IsEnabled(EventLogLevel.Informational))

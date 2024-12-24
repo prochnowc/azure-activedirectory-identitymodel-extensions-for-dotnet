@@ -2,35 +2,35 @@
 // Licensed under the MIT License.
 
 using System;
+using System.Collections.Generic;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Logging;
 using Microsoft.IdentityModel.TestUtils;
 using Microsoft.IdentityModel.Tokens.Json.Tests;
 using Xunit;
-using System.Collections.Generic;
 
 namespace Microsoft.IdentityModel.Tokens.Validation.Tests
 {
     public class AudienceValidationResultTests
     {
-        [Theory, MemberData(nameof(ValidateAudienceTestCases), DisableDiscoveryEnumeration = true)]
+        [Theory, MemberData(nameof(ValidateAudienceParameterTestCases), DisableDiscoveryEnumeration = true)]
         public void ValidateAudienceParameters(AudienceValidationTheoryData theoryData)
         {
-            CompareContext context = TestUtilities.WriteHeader($"{this}.AudienceValidatorResultTests", theoryData);
+            CompareContext context = TestUtilities.WriteHeader($"{this}.ValidateAudienceParameters", theoryData);
 
-            if (theoryData.AudiencesToAdd != null)
+            if (theoryData.ValidAudiences != null)
             {
-                foreach (string audience in theoryData.AudiencesToAdd)
+                foreach (string audience in theoryData.ValidAudiences)
                     theoryData.ValidationParameters.ValidAudiences.Add(audience);
             }
 
-            Result<string> result = Validators.ValidateAudience(
-                theoryData.Audiences,
+            ValidationResult<string> result = Validators.ValidateAudience(
+                theoryData.TokenAudiences,
                 theoryData.SecurityToken,
                 theoryData.ValidationParameters,
-                new CallContext());
+                theoryData.CallContext);
 
-            if (result.IsSuccess)
+            if (result.IsValid)
             {
                 IdentityComparer.AreStringsEqual(
                     result.UnwrapResult(),
@@ -41,13 +41,134 @@ namespace Microsoft.IdentityModel.Tokens.Validation.Tests
             }
             else
             {
-                ExceptionDetail exceptionDetail = result.UnwrapError();
+                ValidationError validationError = result.UnwrapError();
                 IdentityComparer.AreStringsEqual(
-                    exceptionDetail.FailureType.Name,
+                    validationError.FailureType.Name,
                     theoryData.Result.UnwrapError().FailureType.Name,
                     context);
 
-                Exception exception = exceptionDetail.GetException();
+                IdentityComparer.AreStringsEqual(
+                    validationError.MessageDetail.Message,
+                    theoryData.Result.UnwrapError().MessageDetail.Message,
+                    context);
+
+                Exception exception = validationError.GetException();
+                theoryData.ExpectedException.ProcessException(exception, context);
+            }
+
+            TestUtilities.AssertFailIfErrors(context);
+        }
+
+        public static TheoryData<AudienceValidationTheoryData> ValidateAudienceParameterTestCases
+        {
+            get
+            {
+                return new TheoryData<AudienceValidationTheoryData>
+                {
+                    new AudienceValidationTheoryData("ValidationParametersNull")
+                    {
+                        TokenAudiences = new List<string> { "audience1" },
+                        ExpectedException = ExpectedException.SecurityTokenArgumentNullException("IDX10000:"),
+                        ValidationParameters = null,
+                        Result = new ValidationError(
+                            MessageDetail.NullParameter("validationParameters"),
+                            ValidationFailureType.NullArgument,
+                            typeof(SecurityTokenArgumentNullException),
+                            null)
+                    },
+                    new AudienceValidationTheoryData("AudiencesNull")
+                    {
+                        TokenAudiences = null,
+                        ExpectedException = ExpectedException.SecurityTokenArgumentNullException("IDX10000:"),
+                        Result = new ValidationError(
+                            MessageDetail.NullParameter("tokenAudiences"),
+                            ValidationFailureType.NullArgument,
+                            typeof(SecurityTokenInvalidAudienceException),
+                            null)
+                    },
+                    new AudienceValidationTheoryData("AudiencesEmptyList")
+                    {
+                        TokenAudiences = new List<string> { },
+                        ExpectedException = ExpectedException.SecurityTokenInvalidAudienceException("IDX10206:"),
+                        ValidationParameters = new ValidationParameters(),
+                        Result = new ValidationError(
+                            new MessageDetail(
+                                LogMessages.IDX10206,
+                                null),
+                            ValidationFailureType.NoTokenAudiencesProvided,
+                            typeof(SecurityTokenInvalidAudienceException),
+                            null)
+                    },
+                    new AudienceValidationTheoryData("AudiencesEmptyString")
+                    {
+                        TokenAudiences = new List<string> { string.Empty },
+                        ExpectedException = ExpectedException.SecurityTokenInvalidAudienceException("IDX10215:"),
+                        ValidationParameters = new ValidationParameters(),
+                        ValidAudiences = ["audience1"],
+                        Result = new ValidationError(
+                            new MessageDetail(
+                                LogMessages.IDX10215,
+                                LogHelper.MarkAsNonPII(string.Empty),
+                                LogHelper.MarkAsNonPII("audience1")),
+                            ValidationFailureType.AudienceValidationFailed,
+                            typeof(SecurityTokenInvalidAudienceException),
+                            null)
+                    },
+                    new AudienceValidationTheoryData("AudiencesWhiteSpace")
+                    {
+                        TokenAudiences = new List<string> { "    " },
+                        ExpectedException = ExpectedException.SecurityTokenInvalidAudienceException("IDX10215:"),
+                        ValidationParameters = new ValidationParameters(),
+                        ValidAudiences = ["audience1"],
+                        Result = new ValidationError(
+                            new MessageDetail(
+                                LogMessages.IDX10215,
+                                LogHelper.MarkAsNonPII("    "),
+                                LogHelper.MarkAsNonPII("audience1")),
+                            ValidationFailureType.AudienceValidationFailed,
+                            typeof(SecurityTokenInvalidAudienceException),
+                            null)
+                    },
+
+                };
+            }
+        }
+
+        [Theory, MemberData(nameof(ValidateAudienceTestCases), DisableDiscoveryEnumeration = true)]
+        public void ValidateAudienceTests(AudienceValidationTheoryData theoryData)
+        {
+            CompareContext context = TestUtilities.WriteHeader($"{this}.ValidateAudienceTests", theoryData);
+
+            if (theoryData.ValidAudiences != null)
+            {
+                foreach (string audience in theoryData.ValidAudiences)
+                    theoryData.ValidationParameters.ValidAudiences.Add(audience);
+            }
+
+            ValidationResult<string> result = Validators.ValidateAudience(
+                theoryData.TokenAudiences,
+                theoryData.SecurityToken,
+                theoryData.ValidationParameters,
+                theoryData.CallContext);
+
+            if (result.IsValid)
+            {
+                IdentityComparer.AreStringsEqual(
+                    result.UnwrapResult(),
+                    theoryData.Result.UnwrapResult(),
+                    context);
+
+                theoryData.ExpectedException.ProcessNoException(context);
+            }
+            else
+            {
+                ValidationError validationError = result.UnwrapError();
+                IdentityComparer.AreStringsEqual(
+                    validationError.FailureType.Name,
+                    theoryData.Result.UnwrapError().FailureType.Name,
+                    context);
+
+                Exception exception = validationError.GetException();
                 theoryData.ExpectedException.ProcessException(exception, context);
             }
 
@@ -75,152 +196,68 @@ namespace Microsoft.IdentityModel.Tokens.Validation.Tests
 
                 return new TheoryData<AudienceValidationTheoryData>
                 {
-                    new AudienceValidationTheoryData
+                    new AudienceValidationTheoryData("Valid_SameLengthMatched")
                     {
-                        Audiences = new List<string> { "audience1" },
-                        ExpectedException = ExpectedException.ArgumentNullException("IDX10000:"),
-                        TestId = "Invalid_ValidationParametersIsNull",
-                        ValidationParameters = null,
-                        Result = new ExceptionDetail(
-                            new MessageDetail(
-                                LogMessages.IDX10000,
-                                LogHelper.MarkAsNonPII("validationParameters")),
-                            ValidationFailureType.NullArgument,
-                            typeof(ArgumentNullException),
-                            null,
-                            null)
-                    },
-                    new AudienceValidationTheoryData
-                    {
-                        Audiences = null,
-                        TestId = "Invalid_AudiencesIsNull",
-                        ExpectedException = ExpectedException.SecurityTokenInvalidAudienceException("IDX10207:"),
-                        Result = new ExceptionDetail(
-                            new MessageDetail(LogMessages.IDX10207),
-                            ValidationFailureType.AudienceValidationFailed,
-                            typeof(SecurityTokenInvalidAudienceException),
-                            null,
-                            null)
-                    },
-                    new AudienceValidationTheoryData
-                    {
-                        Audiences = new List<string>{ },
-                        TestId = "Invalid_AudiencesIsEmptyList",
-                        ExpectedException = ExpectedException.SecurityTokenInvalidAudienceException("IDX10206:"),
+                        TokenAudiences = audiences1,
                         ValidationParameters = new ValidationParameters(),
-                        Result = new ExceptionDetail(
-                            new MessageDetail(
-                                LogMessages.IDX10206,
-                                null),
-                            ValidationFailureType.AudienceValidationFailed,
-                            typeof(SecurityTokenInvalidAudienceException),
-                            null,
-                            null)
-                    },
-                    new AudienceValidationTheoryData
-                    {
-                        Audiences = new List<string> { "audience1" },
-                        TestId = "Invalid_ValidAudiencesIsEmptyString",
-                        ExpectedException = ExpectedException.SecurityTokenInvalidAudienceException("IDX10215:"),
-                        ValidationParameters = new ValidationParameters(),
-                        AudiencesToAdd = [String.Empty],
-                        Result = new ExceptionDetail(
-                            new MessageDetail(
-                                LogMessages.IDX10215,
-                                LogHelper.MarkAsNonPII("audience1"),
-                                LogHelper.MarkAsNonPII(String.Empty)),
-                            ValidationFailureType.AudienceValidationFailed,
-                            typeof(SecurityTokenInvalidAudienceException),
-                            null,
-                            null)
-                    },
-                    new AudienceValidationTheoryData
-                    {
-                        Audiences = new List<string> { "audience1" },
-                        TestId = "Invalid_ValidAudiencesIsWhiteSpace",
-                        ExpectedException = ExpectedException.SecurityTokenInvalidAudienceException("IDX10215:"),
-                        ValidationParameters = new ValidationParameters(),
-                        AudiencesToAdd = ["    "],
-                        Result = new ExceptionDetail(
-                            new MessageDetail(
-                                LogMessages.IDX10215,
-                                LogHelper.MarkAsNonPII("audience1"),
-                                LogHelper.MarkAsNonPII("    ")),
-                            ValidationFailureType.AudienceValidationFailed,
-                            typeof(SecurityTokenInvalidAudienceException),
-                            null,
-                            null)
-                    },
-                    new AudienceValidationTheoryData
-                    {
-                        Audiences = audiences1,
-                        TestId = "Valid_SameLengthMatched",
-                        ValidationParameters = new ValidationParameters(),
-                        AudiencesToAdd = [audience1],
+                        ValidAudiences = [audience1],
                         SecurityToken = JsonUtilities.CreateUnsignedJsonWebToken(JwtRegisteredClaimNames.Iss, "Issuer"),
                         Result = audience1
                     },
-                    new AudienceValidationTheoryData
+                    new AudienceValidationTheoryData("Invalid_SameLengthNotMatched")
                     {
-                        Audiences = audiences1,
-                        TestId = "Invalid_SameLengthNotMatched",
+                        TokenAudiences = audiences1,
                         ExpectedException = ExpectedException.SecurityTokenInvalidAudienceException("IDX10215:"),
                         ValidationParameters = new ValidationParameters(),
-                        AudiencesToAdd = [audience2],
+                        ValidAudiences = [audience2],
                         SecurityToken = JsonUtilities.CreateUnsignedJsonWebToken(JwtRegisteredClaimNames.Iss, "Issuer"),
-                        Result = new ExceptionDetail(
+                        Result = new ValidationError(
                             new MessageDetail(
                                 LogMessages.IDX10215,
                                 LogHelper.MarkAsNonPII(commaAudience1),
                                 LogHelper.MarkAsNonPII(audience2)),
                             ValidationFailureType.AudienceValidationFailed,
                             typeof(SecurityTokenInvalidAudienceException),
-                            null,
                             null)
                     },
-                    new AudienceValidationTheoryData
+                    new AudienceValidationTheoryData("Invalid_AudiencesValidAudienceWithSlashNotMatched")
                     {
-                        Audiences = audiences1,
-                        TestId = "Invalid_AudiencesValidAudienceWithSlashNotMatched",
+                        TokenAudiences = audiences1,
                         ExpectedException = ExpectedException.SecurityTokenInvalidAudienceException("IDX10215:"),
                         ValidationParameters = new ValidationParameters(),
-                        AudiencesToAdd = [audience2 + "/"],
+                        ValidAudiences = [audience2 + "/"],
                         SecurityToken = JsonUtilities.CreateUnsignedJsonWebToken(JwtRegisteredClaimNames.Iss, "Issuer"),
-                        Result = new ExceptionDetail(
+                        Result = new ValidationError(
                             new MessageDetail(
                                 LogMessages.IDX10215,
                                 LogHelper.MarkAsNonPII(commaAudience1),
                                 LogHelper.MarkAsNonPII(audience2Slash)),
                             ValidationFailureType.AudienceValidationFailed,
                             typeof(SecurityTokenInvalidAudienceException),
-                            null,
                             null)
                     },
-                    new AudienceValidationTheoryData
+                    new AudienceValidationTheoryData("Invalid_AudiencesWithSlashValidAudienceSameLengthNotMatched")
                     {
-                        Audiences = audiences2WithSlash,
-                        TestId = "Invalid_AudiencesWithSlashValidAudienceSameLengthNotMatched",
+                        TokenAudiences = audiences2WithSlash,
                         ExpectedException = ExpectedException.SecurityTokenInvalidAudienceException("IDX10215:"),
                         ValidationParameters = new ValidationParameters(),
-                        AudiencesToAdd = [audience1],
-                        Result = new ExceptionDetail(
+                        ValidAudiences = [audience1],
+                        Result = new ValidationError(
                             new MessageDetail(
                                 LogMessages.IDX10215,
                                 LogHelper.MarkAsNonPII(commaAudience2Slash),
                                 LogHelper.MarkAsNonPII(audience1)),
                             ValidationFailureType.AudienceValidationFailed,
                             typeof(SecurityTokenInvalidAudienceException),
-                            null,
                             null)
                     },
-                    new AudienceValidationTheoryData
+                    new AudienceValidationTheoryData("Invalid_ValidAudienceWithSlash_IgnoreTrailingSlashFalse")
                     {
-                        Audiences = audiences1,
-                        TestId = "Invalid_ValidAudienceWithSlash_IgnoreTrailingSlashFalse",
+                        TokenAudiences = audiences1,
                         ExpectedException = ExpectedException.SecurityTokenInvalidAudienceException("IDX10215:"),
                         ValidationParameters = new ValidationParameters{ IgnoreTrailingSlashWhenValidatingAudience = false },
-                        AudiencesToAdd = [audience1 + "/"],
-                        Result = new ExceptionDetail(
+                        ValidAudiences = [audience1 + "/"],
+                        Result = new ValidationError(
                             new MessageDetail(
                                 LogMessages.IDX10215,
                                 LogHelper.MarkAsNonPII(commaAudience1),
@@ -229,189 +266,167 @@ namespace Microsoft.IdentityModel.Tokens.Validation.Tests
                             typeof(SecurityTokenInvalidAudienceException),
                             null)
                     },
-                    new AudienceValidationTheoryData
+                    new AudienceValidationTheoryData("Valid_ValidAudienceWithSlash_IgnoreTrailingSlashTrue")
                     {
-                        Audiences = audiences1,
-                        TestId = "Valid_ValidAudienceWithSlash_IgnoreTrailingSlashTrue",
+                        TokenAudiences = audiences1,
                         ValidationParameters = new ValidationParameters(),
-                        AudiencesToAdd = [audience1 + "/"],
+                        ValidAudiences = [audience1 + "/"],
                         Result = audience1
                     },
-                    new AudienceValidationTheoryData
+                    new AudienceValidationTheoryData("Invalid_ValidAudiencesWithSlash_IgnoreTrailingSlashFalse")
                     {
-                        Audiences = audiences1,
-                        TestId = "Invalid_ValidAudiencesWithSlash_IgnoreTrailingSlashFalse",
+                        TokenAudiences = audiences1,
                         ExpectedException = ExpectedException.SecurityTokenInvalidAudienceException("IDX10215:"),
                         ValidationParameters = new ValidationParameters{ IgnoreTrailingSlashWhenValidatingAudience = false },
-                        AudiencesToAdd = audiences1WithSlash,
-                        Result = new ExceptionDetail(
+                        ValidAudiences = audiences1WithSlash,
+                        Result = new ValidationError(
                             new MessageDetail(
                                 LogMessages.IDX10215,
                                 LogHelper.MarkAsNonPII(commaAudience1),
                                 LogHelper.MarkAsNonPII(commaAudience1Slash)),
                             ValidationFailureType.AudienceValidationFailed,
                             typeof(SecurityTokenInvalidAudienceException),
-                            null,
                             null)
                     },
-                    new AudienceValidationTheoryData
+                    new AudienceValidationTheoryData("Valid_ValidAudiencesWithSlash_IgnoreTrailingSlashTrue")
                     {
-                        Audiences = audiences1,
-                        TestId = "Valid_ValidAudiencesWithSlash_IgnoreTrailingSlashTrue",
+                        TokenAudiences = audiences1,
                         ValidationParameters = new ValidationParameters(),
-                        AudiencesToAdd = audiences1WithSlash,
+                        ValidAudiences = audiences1WithSlash,
                         Result = audience1
                     },
-                    new AudienceValidationTheoryData
+                    new AudienceValidationTheoryData("Invalid_ValidAudienceWithExtraChar")
                     {
-                        Audiences = audiences1,
-                        TestId = "Invalid_ValidAudienceWithExtraChar",
+                        TokenAudiences = audiences1,
                         ExpectedException = ExpectedException.SecurityTokenInvalidAudienceException("IDX10215:"),
                         ValidationParameters = new ValidationParameters(),
-                        AudiencesToAdd = [audience1 + "A"],
-                        Result = new ExceptionDetail(
+                        ValidAudiences = [audience1 + "A"],
+                        Result = new ValidationError(
                             new MessageDetail(
                                 LogMessages.IDX10215,
                                 LogHelper.MarkAsNonPII(commaAudience1),
                                 LogHelper.MarkAsNonPII(audience1 + "A")),
                             ValidationFailureType.AudienceValidationFailed,
                             typeof(SecurityTokenInvalidAudienceException),
-                            null,
                             null)
                     },
-                    new AudienceValidationTheoryData
+                    new AudienceValidationTheoryData("Invalid_ValidAudienceWithDoubleSlash_IgnoreTrailingSlashTrue")
                     {
-                        Audiences = audiences1,
-                        TestId = "Invalid_ValidAudienceWithDoubleSlash_IgnoreTrailingSlashTrue",
+                        TokenAudiences = audiences1,
                         ExpectedException = ExpectedException.SecurityTokenInvalidAudienceException("IDX10215:"),
                         ValidationParameters = new ValidationParameters(),
-                        AudiencesToAdd = [audience1 + "//"],
-                        Result = new ExceptionDetail(
+                        ValidAudiences = [audience1 + "//"],
+                        Result = new ValidationError(
                             new MessageDetail(
                                 LogMessages.IDX10215,
                                 LogHelper.MarkAsNonPII(commaAudience1),
                                 LogHelper.MarkAsNonPII(audience1 + "//")),
                             ValidationFailureType.AudienceValidationFailed,
                             typeof(SecurityTokenInvalidAudienceException),
-                            null,
                             null)
                     },
-                    new AudienceValidationTheoryData
+                    new AudienceValidationTheoryData("Invalid_ValidAudiencesWithDoubleSlash_IgnoreTrailingSlashTrue")
                     {
-                        Audiences = audiences1,
-                        TestId = "Invalid_ValidAudiencesWithDoubleSlash_IgnoreTrailingSlashTrue",
+                        TokenAudiences = audiences1,
                         ExpectedException = ExpectedException.SecurityTokenInvalidAudienceException("IDX10215:"),
                         ValidationParameters = new ValidationParameters(),
-                        AudiencesToAdd = audiences1WithTwoSlashes,
-                        Result = new ExceptionDetail(
+                        ValidAudiences = audiences1WithTwoSlashes,
+                        Result = new ValidationError(
                             new MessageDetail(
                                 LogMessages.IDX10215,
                                 LogHelper.MarkAsNonPII(commaAudience1),
                                 LogHelper.MarkAsNonPII(commaAudience1 + "//")),
                             ValidationFailureType.AudienceValidationFailed,
                             typeof(SecurityTokenInvalidAudienceException),
-                            null,
                             null)
                     },
-                    new AudienceValidationTheoryData
+                    new AudienceValidationTheoryData("Invalid_TokenAudienceWithSlash_IgnoreTrailingSlashFalse")
                     {
-                        Audiences = audiences1WithSlash,
-                        TestId = "Invalid_TokenAudienceWithSlash_IgnoreTrailingSlashFalse",
+                        TokenAudiences = audiences1WithSlash,
                         ExpectedException = ExpectedException.SecurityTokenInvalidAudienceException("IDX10215:"),
                         ValidationParameters = new ValidationParameters{ IgnoreTrailingSlashWhenValidatingAudience = false },
-                        AudiencesToAdd = [audience1],
-                        Result = new ExceptionDetail(
+                        ValidAudiences = [audience1],
+                        Result = new ValidationError(
                             new MessageDetail(
                                 LogMessages.IDX10215,
                                 LogHelper.MarkAsNonPII(commaAudience1Slash),
                                 LogHelper.MarkAsNonPII(audience1)),
                             ValidationFailureType.AudienceValidationFailed,
                             typeof(SecurityTokenInvalidAudienceException),
-                            null,
                             null)
                     },
-                    new AudienceValidationTheoryData
+                    new AudienceValidationTheoryData("Valid_TokenAudienceWithSlash_IgnoreTrailingSlashTrue")
                     {
-                        Audiences = audiences1WithSlash,
-                        TestId = "Valid_TokenAudienceWithSlash_IgnoreTrailingSlashTrue",
+                        TokenAudiences = audiences1WithSlash,
                         ValidationParameters = new ValidationParameters(),
-                        AudiencesToAdd = [audience1],
+                        ValidAudiences = [audience1],
                         Result = audience1Slash
                     },
-                    new AudienceValidationTheoryData
+                    new AudienceValidationTheoryData("Invalid_TokenAudienceWithSlashNotEqual")
                     {
-                        Audiences = audiences2WithSlash,
-                        TestId = "Invalid_TokenAudienceWithSlashNotEqual",
+                        TokenAudiences = audiences2WithSlash,
                         ExpectedException = ExpectedException.SecurityTokenInvalidAudienceException("IDX10215:"),
                         ValidationParameters = new ValidationParameters(),
-                        AudiencesToAdd = [audience1],
-                        Result = new ExceptionDetail(
+                        ValidAudiences = [audience1],
+                        Result = new ValidationError(
                             new MessageDetail(
                                 LogMessages.IDX10215,
                                 LogHelper.MarkAsNonPII(commaAudience2Slash),
                                 LogHelper.MarkAsNonPII(audience1)),
                             ValidationFailureType.AudienceValidationFailed,
                             typeof(SecurityTokenInvalidAudienceException),
-                            null,
                             null)
                     },
-                    new AudienceValidationTheoryData
+                    new AudienceValidationTheoryData("Invalid_TokenAudiencesWithSlash_IgnoreTrailingSlashFalse")
                     {
-                        Audiences = audiences1WithSlash,
-                        TestId = "Invalid_TokenAudiencesWithSlash_IgnoreTrailingSlashFalse",
+                        TokenAudiences = audiences1WithSlash,
                         ExpectedException = ExpectedException.SecurityTokenInvalidAudienceException("IDX10215:"),
                         ValidationParameters = new ValidationParameters{ IgnoreTrailingSlashWhenValidatingAudience = false },
-                        AudiencesToAdd = [audience1],
-                        Result = new ExceptionDetail(
+                        ValidAudiences = [audience1],
+                        Result = new ValidationError(
                             new MessageDetail(
                                 LogMessages.IDX10215,
                                 LogHelper.MarkAsNonPII(commaAudience1Slash),
                                 LogHelper.MarkAsNonPII(audience1)),
                             ValidationFailureType.AudienceValidationFailed,
                             typeof(SecurityTokenInvalidAudienceException),
-                            null,
                             null)
                     },
-                    new AudienceValidationTheoryData
+                    new AudienceValidationTheoryData("Valid_TokenAudiencesWithSlash_IgnoreTrailingSlashTrue")
                     {
-                        Audiences = audiences1WithSlash,
-                        TestId = "Valid_TokenAudiencesWithSlash_IgnoreTrailingSlashTrue",
+                        TokenAudiences = audiences1WithSlash,
                         ValidationParameters = new ValidationParameters(),
-                        AudiencesToAdd = [audience1],
+                        ValidAudiences = [audience1],
                         Result = audience1Slash
                     },
-                    new AudienceValidationTheoryData
+                    new AudienceValidationTheoryData("Invalid_TokenAudiencesWithSlashValidAudiencesNotMatched_IgnoreTrailingSlashTrue")
                     {
-                        Audiences = audiences1WithSlash,
-                        TestId = "Invalid_TokenAudiencesWithSlashValidAudiencesNotMatched_IgnoreTrailingSlashTrue",
+                        TokenAudiences = audiences1WithSlash,
                         ExpectedException = ExpectedException.SecurityTokenInvalidAudienceException("IDX10215:"),
                         ValidationParameters = new ValidationParameters(),
-                        AudiencesToAdd = audiences2,
-                        Result = new ExceptionDetail(
+                        ValidAudiences = audiences2,
+                        Result = new ValidationError(
                             new MessageDetail(
                                 LogMessages.IDX10215,
                                 LogHelper.MarkAsNonPII(commaAudience1Slash),
                                 LogHelper.MarkAsNonPII(commaAudience2)),
                             ValidationFailureType.AudienceValidationFailed,
                             typeof(SecurityTokenInvalidAudienceException),
-                            null,
                             null)
                     },
-                    new AudienceValidationTheoryData
+                    new AudienceValidationTheoryData("TokenAudienceWithTwoSlashesVPTrue")
                     {
-                        Audiences = audiences1WithTwoSlashes,
-                        TestId = "TokenAudienceWithTwoSlashesVPTrue",
+                        TokenAudiences = audiences1WithTwoSlashes,
                         ExpectedException = ExpectedException.SecurityTokenInvalidAudienceException("IDX10215:"),
                         ValidationParameters = new ValidationParameters(),
-                        AudiencesToAdd = [audience1],
-                        Result = new ExceptionDetail(
+                        ValidAudiences = [audience1],
+                        Result = new ValidationError(
                             new MessageDetail(
                                 LogMessages.IDX10215,
                                 LogHelper.MarkAsNonPII(commaAudience1 + "//"),
                                 LogHelper.MarkAsNonPII(audience1)),
                             ValidationFailureType.AudienceValidationFailed,
                             typeof(SecurityTokenInvalidAudienceException),
-                            null,
                             null)
                     }
                 };
@@ -420,7 +435,9 @@ namespace Microsoft.IdentityModel.Tokens.Validation.Tests
 
         public class AudienceValidationTheoryData : TheoryDataBase
         {
-            public List<string> Audiences { get; set; }
+            public AudienceValidationTheoryData(string testId) : base(testId) { }
+
+            public List<string> TokenAudiences { get; set; }
 
             public SecurityToken SecurityToken { get; set; }
 
@@ -428,11 +445,9 @@ namespace Microsoft.IdentityModel.Tokens.Validation.Tests
 
             internal ValidationFailureType ValidationFailureType { get; set; }
 
-            public List<string> AudiencesToAdd { get; internal set; }
+            public List<string> ValidAudiences { get; set; }
 
-            internal Result<string> Result { get; set; }
+            internal ValidationResult<string> Result { get; set; }
         }
-
-
     }
 }
