@@ -205,10 +205,12 @@ namespace Microsoft.IdentityModel.Protocols.Tests
         {
             get
             {
-                var theoryData = new TheoryData<Version>();
-                theoryData.Add(new Version(1,0));
-                theoryData.Add(new Version(1,1));
-                theoryData.Add(new Version(2,0));
+                var theoryData = new TheoryData<Version>
+                {
+                    new Version(1, 0),
+                    new Version(1, 1),
+                    new Version(2, 0)
+                };
                 return theoryData;
             }
         }
@@ -264,10 +266,12 @@ namespace Microsoft.IdentityModel.Protocols.Tests
         {
             get
             {
-                var theoryData = new TheoryData<HttpVersionPolicy>();
-                theoryData.Add(HttpVersionPolicy.RequestVersionOrLower);
-                theoryData.Add(HttpVersionPolicy.RequestVersionOrHigher);
-                theoryData.Add(HttpVersionPolicy.RequestVersionExact);
+                var theoryData = new TheoryData<HttpVersionPolicy>
+                {
+                    HttpVersionPolicy.RequestVersionOrLower,
+                    HttpVersionPolicy.RequestVersionOrHigher,
+                    HttpVersionPolicy.RequestVersionExact
+                };
                 return theoryData;
             }
         }
