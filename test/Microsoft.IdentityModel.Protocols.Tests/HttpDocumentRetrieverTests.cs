@@ -193,7 +193,7 @@ namespace Microsoft.IdentityModel.Protocols.Tests
             var callback = new Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>>((msg, ct) =>
             {
                 Assert.Equal(version, msg.Version);
-                return Task.FromResult(new HttpResponseMessage());
+                return Task.FromResult(new HttpResponseMessage { Content = new StringContent(string.Empty) });
             });
 
             using var httpClient = new HttpClient(new DelegateHttpMessageHandler(callback));
